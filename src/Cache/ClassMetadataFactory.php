@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Pocta\DataMapper\Cache;
 
 use Pocta\DataMapper\Attributes\MapProperty;
+use Pocta\DataMapper\Attributes\MapFrom;
 use Pocta\DataMapper\Attributes\MapDateTimeProperty;
 use ReflectionClass;
 use ReflectionParameter;
@@ -122,6 +123,7 @@ class ClassMetadataFactory
         $timezone = $this->getTimezone($dateTimeAttrs);
         $arrayOf = $this->getArrayOf($dateTimeAttrs, $propertyAttrs);
         $classType = $this->getClassType($propertyAttrs);
+        $mapFrom = $this->getMapFrom($property);
 
         return new PropertyMetadata(
             $property->getName(),
@@ -133,7 +135,8 @@ class ClassMetadataFactory
             $format,
             $timezone,
             $arrayOf,
-            $classType
+            $classType,
+            $mapFrom
         );
     }
 
@@ -161,6 +164,7 @@ class ClassMetadataFactory
         $timezone = $this->getTimezone($dateTimeAttrs);
         $arrayOf = $this->getArrayOf($dateTimeAttrs, $propertyAttrs);
         $classType = $this->getClassType($propertyAttrs);
+        $mapFrom = $this->getMapFromParam($parameter);
 
         return new ParameterMetadata(
             $parameter->getName(),
@@ -173,7 +177,8 @@ class ClassMetadataFactory
             $format,
             $timezone,
             $arrayOf,
-            $classType
+            $classType,
+            $mapFrom
         );
     }
 
@@ -274,5 +279,29 @@ class ClassMetadataFactory
         }
         $attr = $propertyAttrs[0]->newInstance();
         return $attr->classType;
+    }
+
+    /**
+     * Get MapFrom attribute from property
+     */
+    private function getMapFrom(ReflectionProperty $property): ?MapFrom
+    {
+        $attrs = $property->getAttributes(MapFrom::class);
+        if (empty($attrs)) {
+            return null;
+        }
+        return $attrs[0]->newInstance();
+    }
+
+    /**
+     * Get MapFrom attribute from parameter
+     */
+    private function getMapFromParam(ReflectionParameter $parameter): ?MapFrom
+    {
+        $attrs = $parameter->getAttributes(MapFrom::class);
+        if (empty($attrs)) {
+            return null;
+        }
+        return $attrs[0]->newInstance();
     }
 }

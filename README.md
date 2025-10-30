@@ -375,7 +375,288 @@ public function updateUser(int $id, Request $request): Response
 - Optional strict mode for security
 - Can skip null values to prevent accidental deletions
 
-### 5. Discriminator Mapping (Polymorphism)
+### 5. Object-to-DTO Mapping
+
+Map data from existing objects (Doctrine Entities, other DTOs, POPOs) to target DTOs using property paths and getter methods. This is ideal for API responses, transforming database entities to DTOs, and data projections.
+
+**Basic Object Mapping:**
+
+```php
+use Pocta\DataMapper\Mapper;
+
+$mapper = new Mapper();
+
+// Source: Doctrine Entity or any object
+class UserEntity
+{
+    private string $firstName = 'John';
+    private string $lastName = 'Doe';
+    private bool $active = true;
+
+    public function getFirstName(): string { return $this->firstName; }
+    public function getLastName(): string { return $this->lastName; }
+    public function isActive(): bool { return $this->active; }
+}
+
+// Target: Simple DTO
+class UserDTO
+{
+    public function __construct(
+        public string $firstName,
+        public string $lastName,
+        public bool $active
+    ) {}
+}
+
+$entity = new UserEntity();
+$dto = $mapper->fromObject($entity, UserDTO::class);
+// Result: UserDTO with firstName='John', lastName='Doe', active=true
+```
+
+**Automatic Getter Resolution:**
+
+The mapper automatically resolves property values using multiple strategies (in priority order):
+
+1. **Getter methods**: `getPropertyName()`
+2. **Direct method calls**: `propertyName()`
+3. **Boolean methods**: `isPropertyName()`, `hasPropertyName()`
+4. **Public properties**: Direct property access
+
+```php
+class Product
+{
+    private string $name = 'Product A';
+    private int $stock = 100;
+    public string $category = 'Electronics';
+
+    public function getName(): string { return $this->name; }
+    public function getStock(): int { return $this->stock; }
+    public function hasStock(): bool { return $this->stock > 0; }
+}
+
+class ProductDTO
+{
+    public function __construct(
+        public string $name,        // Resolved via getName()
+        public int $stock,          // Resolved via getStock()
+        public bool $inStock,       // Resolved via hasStock()
+        public string $category     // Resolved via public property
+    ) {}
+}
+
+$product = new Product();
+$dto = $mapper->fromObject($product, ProductDTO::class);
+```
+
+**Nested Object Navigation with MapFrom:**
+
+Use the `#[MapFrom]` attribute to specify property paths for accessing nested objects and collections:
+
+```php
+use Pocta\DataMapper\Attributes\MapFrom;
+
+class Address
+{
+    public function __construct(
+        private string $street,
+        private string $city
+    ) {}
+
+    public function getStreet(): string { return $this->street; }
+    public function getCity(): string { return $this->city; }
+}
+
+class UserEntity
+{
+    private Address $address;
+    private array $addresses = [];
+
+    public function __construct()
+    {
+        $this->address = new Address('Main St', 'New York');
+        $this->addresses = [
+            new Address('First Ave', 'Boston'),
+            new Address('Second St', 'Chicago')
+        ];
+    }
+
+    public function getAddress(): Address { return $this->address; }
+    public function getAddresses(): array { return $this->addresses; }
+}
+
+class UserAddressDTO
+{
+    public function __construct(
+        // Navigate to nested object property
+        #[MapFrom('address.street')]
+        public string $street,
+
+        #[MapFrom('address.city')]
+        public string $city,
+
+        // Access array element by index
+        #[MapFrom('addresses[0].street')]
+        public string $firstAddressStreet,
+
+        #[MapFrom('addresses[1].city')]
+        public string $secondAddressCity
+    ) {}
+}
+
+$entity = new UserEntity();
+$dto = $mapper->fromObject($entity, UserAddressDTO::class);
+// Result: street='Main St', city='New York', firstAddressStreet='First Ave', secondAddressCity='Chicago'
+```
+
+**Explicit Method Calls:**
+
+Call specific methods on objects, including methods that don't follow getter conventions:
+
+```php
+class UserEntity
+{
+    private string $firstName = 'John';
+    private string $lastName = 'Doe';
+    private string $email = 'john@example.com';
+
+    public function getFirstName(): string { return $this->firstName; }
+    public function getLastName(): string { return $this->lastName; }
+
+    public function getFullName(): string
+    {
+        return $this->firstName . ' ' . $this->lastName;
+    }
+
+    // Method without 'get' prefix
+    public function email(): string { return $this->email; }
+}
+
+class UserDTO
+{
+    public function __construct(
+        // Call getFullName() method explicitly
+        #[MapFrom('getFullName()')]
+        public string $fullName,
+
+        // Call email() method (no 'get' prefix)
+        #[MapFrom('email()')]
+        public string $emailAddress
+    ) {}
+}
+
+$entity = new UserEntity();
+$dto = $mapper->fromObject($entity, UserDTO::class);
+// Result: fullName='John Doe', emailAddress='john@example.com'
+```
+
+**Nested Method Calls:**
+
+Combine property paths with method calls for complex object graphs:
+
+```php
+class Address
+{
+    public function __construct(
+        private string $street,
+        private string $city
+    ) {}
+
+    public function getFullAddress(): string
+    {
+        return $this->street . ', ' . $this->city;
+    }
+}
+
+class UserEntity
+{
+    public function __construct(
+        private Address $address
+    ) {}
+
+    public function getAddress(): Address { return $this->address; }
+}
+
+class UserDTO
+{
+    public function __construct(
+        // Navigate to address, then call getFullAddress()
+        #[MapFrom('address.getFullAddress()')]
+        public string $fullAddress
+    ) {}
+}
+
+$entity = new UserEntity(new Address('Main St', 'Springfield'));
+$dto = $mapper->fromObject($entity, UserDTO::class);
+// Result: fullAddress='Main St, Springfield'
+```
+
+**Path Syntax:**
+
+- **Dot notation**: `property.nestedProperty` - Navigate nested objects
+- **Array indexes**: `property[0].nestedProperty` - Access array elements
+- **Method calls**: `getMethod()` or `address.getMethod()` - Call methods
+- **Mixed notation**: `user.addresses[0].getCity()` - Combine all features
+
+**Real-World Example: Doctrine Entity to API Response:**
+
+```php
+// Doctrine Entity
+class User
+{
+    private int $id;
+    private string $firstName;
+    private string $lastName;
+    private Address $primaryAddress;
+    /** @var Collection<Address> */
+    private Collection $addresses;
+
+    // Getters...
+}
+
+class Address
+{
+    private string $street;
+    private string $city;
+    private string $country;
+
+    // Getters...
+}
+
+// API Response DTO
+class UserResponseDTO
+{
+    public function __construct(
+        public int $id,
+        #[MapFrom('getFullName()')]
+        public string $name,
+        #[MapFrom('primaryAddress.street')]
+        public string $street,
+        #[MapFrom('primaryAddress.city')]
+        public string $city,
+        #[MapFrom('addresses[0].country')]
+        public ?string $firstAddressCountry = null
+    ) {}
+}
+
+// In your controller
+$user = $entityManager->find(User::class, $id);
+$response = $mapper->fromObject($user, UserResponseDTO::class);
+
+return $this->json($response);
+```
+
+**Benefits:**
+
+- Clean separation between domain entities and API DTOs
+- No need for manual data transformation
+- Type-safe with PHPStan support
+- Works with all mapper features (filters, validators, events)
+- Supports Doctrine Collections and complex object graphs
+- Reduces boilerplate code in controllers and services
+
+**Note:** Object mapping uses the same underlying flow as array mapping, so all features (filters, validation, events, etc.) work seamlessly.
+
+### 6. Discriminator Mapping (Polymorphism)
 
 The `DiscriminatorMap` attribute enables polymorphic object mapping based on a discriminator field. This is useful when deserializing data that can represent different concrete classes (e.g., different vehicle types, payment methods, or event types).
 

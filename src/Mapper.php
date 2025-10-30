@@ -296,6 +296,91 @@ class Mapper
     }
 
     /**
+     * Maps a source object (Entity, DTO, etc.) to a target DTO class
+     * Supports property paths, getters, and nested object navigation
+     *
+     * @template T of object
+     * @param object $source Source object (Doctrine Entity, DTO, etc.)
+     * @param class-string<T> $className Target DTO class name
+     * @return T Mapped target object
+     *
+     * Example:
+     * ```php
+     * // Doctrine Entity
+     * $user = $entityManager->find(User::class, 1);
+     *
+     * // Map to DTO
+     * $userDto = $mapper->fromObject($user, UserDTO::class);
+     * ```
+     */
+    public function fromObject(object $source, string $className): object
+    {
+        $this->profiler?->start('fromObject');
+        $this->debugger?->logOperation('fromObject', get_class($source), $className);
+
+        try {
+            // Convert object to array using ObjectPathResolver for properties with MapFrom attribute
+            $data = $this->objectToArray($source, $className);
+
+            // Use regular fromArray flow
+            return $this->fromArray($data, $className);
+        } finally {
+            $this->profiler?->stop('fromObject');
+        }
+    }
+
+    /**
+     * Convert source object to array based on target class MapFrom attributes
+     *
+     * @param object $source
+     * @param class-string $className
+     * @return array<string, mixed>
+     */
+    private function objectToArray(object $source, string $className): array
+    {
+        $metadata = $this->metadataFactory->getMetadata($className);
+        $data = [];
+
+        // Process constructor parameters
+        if ($metadata->constructor !== null) {
+            foreach ($metadata->constructor->parameters as $param) {
+            $mapFrom = $param->mapFrom;
+
+            if ($mapFrom !== null) {
+                // Use MapFrom attribute path
+                $value = \Pocta\DataMapper\ObjectPathResolver::resolve($source, $mapFrom->path);
+                $data[$param->name] = $value;
+            } else {
+                // Try automatic mapping: property name -> getter
+                $value = \Pocta\DataMapper\ObjectPathResolver::resolve($source, $param->name);
+                if ($value !== null) {
+                    $data[$param->name] = $value;
+                }
+            }
+            }
+        }
+
+        // Process regular properties
+        foreach ($metadata->properties as $property) {
+            $mapFrom = $property->mapFrom;
+
+            if ($mapFrom !== null) {
+                // Use MapFrom attribute path
+                $value = \Pocta\DataMapper\ObjectPathResolver::resolve($source, $mapFrom->path);
+                $data[$property->name] = $value;
+            } else {
+                // Try automatic mapping: property name -> getter
+                $value = \Pocta\DataMapper\ObjectPathResolver::resolve($source, $property->name);
+                if ($value !== null) {
+                    $data[$property->name] = $value;
+                }
+            }
+        }
+
+        return $data;
+    }
+
+    /**
      * Merges partial data from array into an existing object
      * Only updates properties that are present in the input data
      *
