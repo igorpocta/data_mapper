@@ -30,6 +30,7 @@ class Mapper
     private ClassMetadataFactory $metadataFactory;
     private EventDispatcher $eventDispatcher;
     private Validator $validator;
+    private TypeResolver $typeResolver;
     private bool $autoValidate;
     private bool $strictMode;
     private ?Debugger $debugger;
@@ -60,7 +61,7 @@ class Mapper
         $options = $options ?? new MapperOptions();
 
         $cache = $cache ?? new ArrayCache();
-        $typeResolver = $typeResolver ?? new TypeResolver();
+        $this->typeResolver = $typeResolver ?? new TypeResolver();
         $this->eventDispatcher = $eventDispatcher ?? new EventDispatcher();
         $this->metadataFactory = new ClassMetadataFactory($cache);
         $this->validator = $validator ?? new Validator();
@@ -69,9 +70,9 @@ class Mapper
         $this->debugger = $debugger;
         $this->profiler = $profiler;
 
-        $this->denormalizer = $denormalizer ?? new Denormalizer($typeResolver, $this->metadataFactory);
+        $this->denormalizer = $denormalizer ?? new Denormalizer($this->typeResolver, $this->metadataFactory);
         $this->denormalizer->setStrictMode($this->strictMode);
-        $this->normalizer = $normalizer ?? new Normalizer($typeResolver, $this->metadataFactory);
+        $this->normalizer = $normalizer ?? new Normalizer($this->typeResolver, $this->metadataFactory);
 
         // Setup event listener for debugging events
         if ($this->debugger?->isEnabled()) {
@@ -292,6 +293,192 @@ class Mapper
             \Pocta\DataMapper\Denormalizer\Denormalizer::setGlobalRoot(null);
             $this->profiler?->stop('fromArray');
         }
+    }
+
+    /**
+     * Merges partial data from array into an existing object
+     * Only updates properties that are present in the input data
+     *
+     * @template T of object
+     * @param array<string, mixed> $data Partial data to merge
+     * @param T $target Existing object to update
+     * @param bool $skipNull Skip null values in input data (don't overwrite with null)
+     * @return T Updated object (same instance)
+     * @throws \Pocta\DataMapper\Exceptions\ValidationException
+     */
+    public function merge(array $data, object $target, bool $skipNull = false): object
+    {
+        $this->profiler?->start('merge');
+        $this->debugger?->logOperation('merge', $data, get_class($target));
+
+        try {
+            $reflection = new \ReflectionClass($target);
+
+            foreach ($data as $key => $value) {
+                // Skip null values if requested
+                if ($skipNull && $value === null) {
+                    continue;
+                }
+
+                // Try to find property by checking both direct name and MapProperty attribute
+                $property = $this->findPropertyByJsonKey($reflection, $key);
+
+                if ($property === null) {
+                    // Property not found
+                    if ($this->strictMode) {
+                        throw new \Pocta\DataMapper\Exceptions\ValidationException([
+                            $key => "Unknown key '{$key}' is not allowed in strict mode"
+                        ]);
+                    }
+                    continue; // Skip unknown properties in non-strict mode
+                }
+
+                // Get property type information
+                $dateTimeAttributes = $property->getAttributes(\Pocta\DataMapper\Attributes\MapDateTimeProperty::class);
+                $propertyAttributes = $property->getAttributes(\Pocta\DataMapper\Attributes\MapProperty::class);
+
+                $typeName = $this->getPropertyType($property, $dateTimeAttributes, $propertyAttributes);
+                $format = $this->getFormatFromAttributes($dateTimeAttributes);
+                $timezone = $this->getTimezoneFromAttributes($dateTimeAttributes);
+                $arrayOf = $this->getArrayOfFromAttributes($dateTimeAttributes, $propertyAttributes);
+                $classType = $this->getClassTypeFromAttributes($propertyAttributes);
+
+                // Denormalize the value
+                $type = $this->typeResolver->getType($typeName, $format, $timezone, $arrayOf, $classType);
+                $isNullable = $property->getType()?->allowsNull() ?? true;
+                $typedValue = $type->denormalize($value, $key, $isNullable);
+
+                // Set the value
+                $property->setAccessible(true);
+                $property->setValue($target, $typedValue);
+            }
+
+            return $target;
+        } finally {
+            $this->profiler?->stop('merge');
+        }
+    }
+
+    /**
+     * Finds a property by its JSON key (considering MapProperty attributes)
+     *
+     * @param \ReflectionClass<object> $reflection
+     * @param string $jsonKey
+     * @return \ReflectionProperty|null
+     */
+    private function findPropertyByJsonKey(\ReflectionClass $reflection, string $jsonKey): ?\ReflectionProperty
+    {
+        foreach ($reflection->getProperties() as $property) {
+            // Check direct match
+            if ($property->getName() === $jsonKey) {
+                return $property;
+            }
+
+            // Check MapProperty name
+            $propertyAttributes = $property->getAttributes(\Pocta\DataMapper\Attributes\MapProperty::class);
+            if (!empty($propertyAttributes)) {
+                $attr = $propertyAttributes[0]->newInstance();
+                if ($attr->name === $jsonKey) {
+                    return $property;
+                }
+            }
+
+            // Check MapDateTimeProperty name
+            $dateTimeAttributes = $property->getAttributes(\Pocta\DataMapper\Attributes\MapDateTimeProperty::class);
+            if (!empty($dateTimeAttributes)) {
+                $attr = $dateTimeAttributes[0]->newInstance();
+                if ($attr->name === $jsonKey) {
+                    return $property;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Gets property type considering attributes
+     *
+     * @param \ReflectionProperty $property
+     * @param array<\ReflectionAttribute<\Pocta\DataMapper\Attributes\MapDateTimeProperty>> $dateTimeAttributes
+     * @param array<\ReflectionAttribute<\Pocta\DataMapper\Attributes\MapProperty>> $propertyAttributes
+     * @return string
+     */
+    private function getPropertyType(
+        \ReflectionProperty $property,
+        array $dateTimeAttributes,
+        array $propertyAttributes
+    ): string {
+        if (!empty($dateTimeAttributes)) {
+            $attr = $dateTimeAttributes[0]->newInstance();
+            if ($attr->type !== null) {
+                return $attr->type->value;
+            }
+        }
+
+        if (!empty($propertyAttributes)) {
+            $attr = $propertyAttributes[0]->newInstance();
+            if ($attr->type !== null) {
+                return $attr->type->value;
+            }
+        }
+
+        $type = $property->getType();
+        if ($type instanceof \ReflectionNamedType) {
+            return $type->getName();
+        }
+
+        return 'string';
+    }
+
+    /**
+     * @param array<\ReflectionAttribute<\Pocta\DataMapper\Attributes\MapDateTimeProperty>> $dateTimeAttributes
+     */
+    private function getFormatFromAttributes(array $dateTimeAttributes): ?string
+    {
+        if (empty($dateTimeAttributes)) {
+            return null;
+        }
+        return $dateTimeAttributes[0]->newInstance()->format;
+    }
+
+    /**
+     * @param array<\ReflectionAttribute<\Pocta\DataMapper\Attributes\MapDateTimeProperty>> $dateTimeAttributes
+     */
+    private function getTimezoneFromAttributes(array $dateTimeAttributes): ?string
+    {
+        if (empty($dateTimeAttributes)) {
+            return null;
+        }
+        return $dateTimeAttributes[0]->newInstance()->timezone;
+    }
+
+    /**
+     * @param array<\ReflectionAttribute<\Pocta\DataMapper\Attributes\MapDateTimeProperty>> $dateTimeAttributes
+     * @param array<\ReflectionAttribute<\Pocta\DataMapper\Attributes\MapProperty>> $propertyAttributes
+     * @return class-string|null
+     */
+    private function getArrayOfFromAttributes(array $dateTimeAttributes, array $propertyAttributes): ?string
+    {
+        if (!empty($dateTimeAttributes)) {
+            return $dateTimeAttributes[0]->newInstance()->arrayOf;
+        }
+        if (!empty($propertyAttributes)) {
+            return $propertyAttributes[0]->newInstance()->arrayOf;
+        }
+        return null;
+    }
+
+    /**
+     * @param array<\ReflectionAttribute<\Pocta\DataMapper\Attributes\MapProperty>> $propertyAttributes
+     * @return class-string|null
+     */
+    private function getClassTypeFromAttributes(array $propertyAttributes): ?string
+    {
+        if (empty($propertyAttributes)) {
+            return null;
+        }
+        return $propertyAttributes[0]->newInstance()->classType;
     }
 
     /**

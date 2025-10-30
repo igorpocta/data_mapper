@@ -3,7 +3,7 @@
 [![CI](https://github.com/igorpocta/data-mapper/actions/workflows/ci.yml/badge.svg)](https://github.com/igorpocta/data-mapper/actions/workflows/ci.yml)
 [![PHP Version](https://img.shields.io/badge/PHP-8.1%2B-blue)](https://php.net)
 [![PHPStan Level](https://img.shields.io/badge/PHPStan-level%209-brightgreen)](https://phpstan.org)
-[![Tests](https://img.shields.io/badge/tests-246%20passing-success)](.)
+[![Tests](https://img.shields.io/badge/tests-259%20passing-success)](.)
 
 High-performance and type-safe PHP library for bidirectional data mapping between JSON/arrays and objects. Supports constructors, nullable types, enums, DateTime, nested objects, filters, and much more.
 
@@ -53,6 +53,7 @@ composer require igorpocta/data-mapper
 
 ### Advanced Features
 - **Constructor properties**: Full support for promoted properties
+- **Partial updates**: Merge partial data into existing objects with `merge()` method
 - **Filters**: 60+ built-in filters for data transformation (trim, lowercase, slugify, etc.)
 - **Hydration**: Custom functions for data transformation using `MapPropertyWithFunction`
 - **Event System**: Hooks for pre/post processing (logging, transformations, error handling)
@@ -292,6 +293,85 @@ try {
     echo $e->getMessage();
 }
 ```
+
+### 4. Partial Updates / Merge
+
+Update only specific properties of an existing object without recreating it:
+
+```php
+use Pocta\DataMapper\Mapper;
+
+$mapper = new Mapper();
+
+// Existing object from database
+$user = $userRepository->find(1); // User{id: 1, name: 'John', email: 'john@example.com', age: 30}
+
+// Partial update from API request (PATCH endpoint)
+$partialData = ['name' => 'Jane']; // Only update name
+$mapper->merge($partialData, $user);
+
+// Result: User{id: 1, name: 'Jane', email: 'john@example.com', age: 30}
+// Only name was updated, other properties remain unchanged
+```
+
+**Skip null values:**
+```php
+// API sends null for fields that shouldn't be updated
+$partialData = [
+    'name' => 'Jane',
+    'email' => null,  // Keep current email, don't update to null
+    'age' => 35
+];
+
+$mapper->merge($partialData, $user, skipNull: true);
+
+// Result: name and age updated, email unchanged
+```
+
+**With strict mode:**
+```php
+$mapper = new Mapper(MapperOptions::withStrictMode());
+
+$partialData = [
+    'name' => 'Jane',
+    'unknown_field' => 'value' // This will throw ValidationException
+];
+
+try {
+    $mapper->merge($partialData, $user);
+} catch (ValidationException $e) {
+    // Unknown key error
+}
+```
+
+**Real-world PATCH endpoint example:**
+```php
+#[Route('/api/users/{id}', methods: ['PATCH'])]
+public function updateUser(int $id, Request $request): Response
+{
+    $user = $this->userRepository->find($id);
+
+    // Get partial data from request body
+    $partialData = json_decode($request->getContent(), true);
+
+    // Merge changes into existing entity
+    $this->mapper->merge($partialData, $user, skipNull: true);
+
+    // Validate and save
+    $this->validator->validate($user);
+    $this->em->flush();
+
+    return $this->json($user);
+}
+```
+
+**Benefits:**
+- Perfect for PATCH endpoints
+- Preserves unchanged properties
+- Works with any object (not just newly created ones)
+- Respects all type conversions and validations
+- Optional strict mode for security
+- Can skip null values to prevent accidental deletions
 
 ## Class Definitions
 
