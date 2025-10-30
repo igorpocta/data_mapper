@@ -36,6 +36,17 @@ jobs:
       matrix:
         php: ['8.1', '8.2', '8.3']
 
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -44,10 +55,22 @@ jobs:
         uses: shivammathur/setup-php@v2
         with:
           php-version: ${{ matrix.php }}
+          extensions: redis
           coverage: none
 
       - name: Install dependencies
         run: composer install --prefer-dist --no-progress --no-suggest
+
+      - name: Verify Redis connection
+        run: |
+          php -r "
+          \$redis = new Redis();
+          if (!\$redis->connect('127.0.0.1', 6379, 1)) {
+            echo 'Failed to connect to Redis';
+            exit(1);
+          }
+          echo 'Redis connection successful';
+          "
 
       - name: Run tests
         run: composer test
@@ -55,6 +78,17 @@ jobs:
   tests-with-coverage:
     name: Tests with Coverage
     runs-on: ubuntu-latest
+
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
 
     steps:
       - name: Checkout code
@@ -64,10 +98,22 @@ jobs:
         uses: shivammathur/setup-php@v2
         with:
           php-version: '8.1'
+          extensions: redis
           coverage: xdebug
 
       - name: Install dependencies
         run: composer install --prefer-dist --no-progress --no-suggest
+
+      - name: Verify Redis connection
+        run: |
+          php -r "
+          \$redis = new Redis();
+          if (!\$redis->connect('127.0.0.1', 6379, 1)) {
+            echo 'Failed to connect to Redis';
+            exit(1);
+          }
+          echo 'Redis connection successful';
+          "
 
       - name: Run tests with coverage
         run: vendor/bin/phpunit --coverage-text --coverage-clover=coverage.xml

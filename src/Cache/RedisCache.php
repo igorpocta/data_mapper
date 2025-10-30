@@ -33,7 +33,8 @@ use RuntimeException;
  */
 class RedisCache implements CacheInterface
 {
-    private Redis|object $redis;
+    /** @var Redis|object */
+    private object $redis;
     private string $prefix;
     private int $defaultTtl;
     private bool $isPredis;
@@ -45,7 +46,7 @@ class RedisCache implements CacheInterface
      * @throws RuntimeException If Redis client is not valid
      */
     public function __construct(
-        Redis|object $redis,
+        object $redis,
         string $prefix = 'mapper:',
         int $defaultTtl = 0
     ) {
@@ -73,7 +74,9 @@ class RedisCache implements CacheInterface
 
             $data = @unserialize($value);
 
-            if ($data === false) {
+            // unserialize returns false on error, but also when the serialized value was false
+            // We need to check if it was actually an error
+            if ($data === false && $value !== serialize(false)) {
                 return $default;
             }
 
@@ -291,9 +294,10 @@ class RedisCache implements CacheInterface
     /**
      * Validate that provided client is a valid Redis instance
      *
+     * @param object $redis
      * @throws RuntimeException
      */
-    private function validateRedisClient(Redis|object $redis): void
+    private function validateRedisClient(object $redis): void
     {
         if ($redis instanceof Redis) {
             return; // phpredis is valid

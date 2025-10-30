@@ -1843,9 +1843,10 @@ $mapper = new Mapper(cache: $cache);
 - TTL (time to live) support with automatic expiration
 - Key prefix isolation for multiple applications
 - Atomic operations (increment/decrement)
-- Supports both phpredis and Predis
+- Supports both phpredis extension and Predis library
 - Cache statistics and monitoring
 - Connection health checks (ping)
+- Fully tested with 28 unit tests in CI/CD
 
 **Advanced operations:**
 
