@@ -6,6 +6,7 @@ namespace Tests;
 
 use PHPUnit\Framework\TestCase;
 use Pocta\DataMapper\Mapper;
+use Pocta\DataMapper\MapperOptions;
 use Pocta\DataMapper\Exceptions\ValidationException;
 use Pocta\DataMapper\Validation;
 
@@ -15,7 +16,7 @@ class NewValidatorsTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->mapper = new Mapper(autoValidate: true);
+        $this->mapper = new Mapper(MapperOptions::withAutoValidation());
     }
 
     public function testBlankValidator(): void

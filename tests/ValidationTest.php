@@ -6,6 +6,7 @@ namespace Tests;
 
 use PHPUnit\Framework\TestCase;
 use Pocta\DataMapper\Mapper;
+use Pocta\DataMapper\MapperOptions;
 use Pocta\DataMapper\Validation\Validator;
 use Pocta\DataMapper\Validation\NotNull;
 use Pocta\DataMapper\Validation\Range;
@@ -121,7 +122,7 @@ class ValidationTest extends TestCase
 
     public function testAutoValidation(): void
     {
-        $mapper = new Mapper(autoValidate: true);
+        $mapper = new Mapper(MapperOptions::withAutoValidation());
 
         $this->expectException(ValidationException::class);
 
@@ -131,7 +132,7 @@ class ValidationTest extends TestCase
 
     public function testAutoValidationWithFromJson(): void
     {
-        $mapper = new Mapper(autoValidate: true);
+        $mapper = new Mapper(MapperOptions::withAutoValidation());
 
         $this->expectException(ValidationException::class);
 

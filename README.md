@@ -3,7 +3,7 @@
 [![CI](https://github.com/igorpocta/data-mapper/actions/workflows/ci.yml/badge.svg)](https://github.com/igorpocta/data-mapper/actions/workflows/ci.yml)
 [![PHP Version](https://img.shields.io/badge/PHP-8.1%2B-blue)](https://php.net)
 [![PHPStan Level](https://img.shields.io/badge/PHPStan-level%209-brightgreen)](https://phpstan.org)
-[![Tests](https://img.shields.io/badge/tests-207%20passing-success)](.)
+[![Tests](https://img.shields.io/badge/tests-228%20passing-success)](.)
 
 High-performance and type-safe PHP library for bidirectional data mapping between JSON/arrays and objects. Supports constructors, nullable types, enums, DateTime, nested objects, filters, and much more.
 
@@ -13,6 +13,7 @@ High-performance and type-safe PHP library for bidirectional data mapping betwee
 - [Installation](#installation)
 - [Key Features](#key-features)
 - [Quick Start](#quick-start)
+- [Configuration (MapperOptions)](#configuration-mapperoptions)
 - [Supported Types](#supported-types)
 - [Class Definitions](#class-definitions)
 - [Advanced Features](#advanced-features)
@@ -56,11 +57,12 @@ composer require igorpocta/data-mapper
 - **Event System**: Hooks for pre/post processing (logging, transformations, error handling)
 - **Validation**: 30+ Assert attributes (NotNull, Range, Email, Choice, Callback, Type, IsTrue, Ip, etc.)
 - **Auto-validation**: Automatic object validation after denormalization
+- **Strict mode**: Validates that input contains only known keys, preventing unknown data
 - **Flexible architecture**: Normalizer and Denormalizer as separate components
 
 ### Code Quality
 - **PHPStan Level 9**: Strictest static analysis
-- **100% tested**: 207 unit tests, 695 assertions
+- **100% tested**: 228 unit tests, 749 assertions
 - **Extensibility**: Easy addition of custom data types, filters, and validators
 - **Debug & Profiling**: Integrated tools for performance analysis and optimization
 
@@ -94,6 +96,81 @@ $user = $mapper->fromArray(['id' => 1, 'name' => 'John', 'active' => true], User
 
 // Object → Array
 $array = $mapper->toArray($user); // ['id' => 1, 'name' => 'John', 'active' => true]
+```
+
+### Configuration with MapperOptions
+
+```php
+use Pocta\DataMapper\Mapper;
+use Pocta\DataMapper\MapperOptions;
+
+// Use predefined configurations
+$mapper = new Mapper(MapperOptions::development()); // Strict validation for development
+$mapper = new Mapper(MapperOptions::production());   // Lenient for production
+$mapper = new Mapper(MapperOptions::strict());       // Both auto-validation and strict mode
+
+// Custom configuration
+$options = new MapperOptions(
+    autoValidate: true,
+    strictMode: true,
+    throwOnMissingData: true,
+    skipNullValues: false,
+    preserveNumericStrings: false
+);
+$mapper = new Mapper($options);
+
+// Modify existing options
+$newOptions = $options->with(strictMode: false);
+$mapper = new Mapper($newOptions);
+```
+
+## Configuration (MapperOptions)
+
+The `MapperOptions` class provides a clean way to configure the Mapper behavior.
+
+### Available Options
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `autoValidate` | `bool` | `false` | Automatically validate objects after denormalization |
+| `strictMode` | `bool` | `false` | Throw validation error if unknown keys are present in input |
+| `throwOnMissingData` | `bool` | `true` | Throw exception when required data is missing |
+| `skipNullValues` | `bool` | `false` | Skip null values during normalization (don't include in output) |
+| `preserveNumericStrings` | `bool` | `false` | Keep numeric strings as strings instead of converting to numbers |
+
+### Factory Methods
+
+```php
+// Quick configurations for common scenarios
+MapperOptions::withAutoValidation()  // Enable auto-validation only
+MapperOptions::withStrictMode()      // Enable strict mode only
+MapperOptions::strict()              // Enable both auto-validation and strict mode
+MapperOptions::development()         // Strict validation for development
+MapperOptions::production()          // Lenient configuration for production
+```
+
+### Custom Configuration
+
+```php
+$options = new MapperOptions(
+    autoValidate: true,
+    strictMode: true,
+    skipNullValues: true
+);
+
+$mapper = new Mapper($options);
+```
+
+### Immutable Updates
+
+Use the `with()` method to create modified copies:
+
+```php
+$baseOptions = MapperOptions::production();
+$strictOptions = $baseOptions->with(strictMode: true);
+
+// $baseOptions is unchanged
+// $strictOptions has strictMode enabled
 ```
 
 ## Supported Types
@@ -663,6 +740,52 @@ try {
     // ['id' => "must be at least 1", 'email' => "must be valid email"]
 }
 ```
+
+### Strict Mode
+
+Strict mode validates that input data contains only known keys defined in the target class. When enabled, any unknown keys will cause a `ValidationException`.
+
+```php
+// Enable strict mode in constructor
+$mapper = new Mapper(strictMode: true);
+
+class User
+{
+    public function __construct(
+        public int $id,
+        public string $name
+    ) {}
+}
+
+// This will throw ValidationException because 'unknown_field' is not defined in User
+try {
+    $data = ['id' => 1, 'name' => 'John', 'unknown_field' => 'value'];
+    $user = $mapper->fromArray($data, User::class);
+} catch (ValidationException $e) {
+    $errors = $e->getErrors();
+    // ['unknown_field' => "Unknown key 'unknown_field' at path 'unknown_field' is not allowed in strict mode"]
+}
+
+// Works fine - all keys are known
+$data = ['id' => 1, 'name' => 'John'];
+$user = $mapper->fromArray($data, User::class); // OK
+
+// Dynamic control
+$mapper->setStrictMode(false); // Disable
+$mapper->setStrictMode(true);  // Enable
+
+if ($mapper->isStrictMode()) {
+    // Strict mode is enabled
+}
+```
+
+**Benefits:**
+- Catches typos in input data keys
+- Prevents accidental data leakage
+- Ensures API contracts are strictly followed
+- Useful for debugging and development
+
+**Note:** By default, strict mode is disabled (`false`) to maintain backward compatibility.
 
 ### Manual Validation
 

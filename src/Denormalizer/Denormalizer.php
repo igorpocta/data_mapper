@@ -21,6 +21,8 @@ class Denormalizer
     /** @var array<string, string> */
     private array $errors = [];
 
+    private bool $strictMode = false;
+
     /**
      * Context stack of payloads for nested denormalization levels.
      * Bottom (index 0) = root payload; Top (end) = current payload.
@@ -89,6 +91,22 @@ class Denormalizer
     }
 
     /**
+     * Enable or disable strict mode
+     */
+    public function setStrictMode(bool $strictMode): void
+    {
+        $this->strictMode = $strictMode;
+    }
+
+    /**
+     * Check if strict mode is enabled
+     */
+    public function isStrictMode(): bool
+    {
+        return $this->strictMode;
+    }
+
+    /**
      * Converts an associative array to an object
      *
      * @template T of object
@@ -115,6 +133,11 @@ class Denormalizer
 
         $reflection = new ReflectionClass($className);
         $constructor = $reflection->getConstructor();
+
+        // Validate unknown keys in strict mode
+        if ($this->strictMode) {
+            $this->validateUnknownKeys($reflection, $constructor, $data);
+        }
 
         if ($constructor && $constructor->getNumberOfParameters() > 0) {
             $result = $this->createWithConstructor($reflection, $constructor, $data);
@@ -747,5 +770,47 @@ class Denormalizer
             return self::$globalRootPayload;
         }
         return $this->contextStack[0] ?? ($this->contextStack[count($this->contextStack) - 1] ?? []);
+    }
+
+    /**
+     * Validates that no unknown keys are present in the input data
+     *
+     * @param ReflectionClass<object> $reflection
+     * @param \ReflectionMethod|null $constructor
+     * @param array<string, mixed> $data
+     */
+    private function validateUnknownKeys(
+        ReflectionClass $reflection,
+        ?\ReflectionMethod $constructor,
+        array $data
+    ): void {
+        $knownKeys = [];
+
+        // Collect keys from constructor parameters
+        if ($constructor) {
+            foreach ($constructor->getParameters() as $parameter) {
+                $dateTimeAttributes = $parameter->getAttributes(MapDateTimeProperty::class);
+                $propertyAttributes = $parameter->getAttributes(MapProperty::class);
+                $knownKeys[] = $this->getJsonKeyFromParameter($parameter, $dateTimeAttributes, $propertyAttributes);
+            }
+        }
+
+        // Collect keys from properties
+        foreach ($reflection->getProperties() as $property) {
+            $dateTimeAttributes = $property->getAttributes(MapDateTimeProperty::class);
+            $propertyAttributes = $property->getAttributes(MapProperty::class);
+            $jsonKey = $this->getJsonKeyFromProperty($property, $dateTimeAttributes, $propertyAttributes);
+            if (!in_array($jsonKey, $knownKeys, true)) {
+                $knownKeys[] = $jsonKey;
+            }
+        }
+
+        // Check for unknown keys
+        foreach (array_keys($data) as $inputKey) {
+            if (!in_array($inputKey, $knownKeys, true)) {
+                $fullPath = $this->buildFullFieldPath((string) $inputKey);
+                $this->errors[$fullPath] = "Unknown key '{$inputKey}' at path '{$fullPath}' is not allowed in strict mode";
+            }
+        }
     }
 }

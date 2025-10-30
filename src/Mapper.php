@@ -31,41 +31,46 @@ class Mapper
     private EventDispatcher $eventDispatcher;
     private Validator $validator;
     private bool $autoValidate;
+    private bool $strictMode;
     private ?Debugger $debugger;
     private ?Profiler $profiler;
 
     /**
+     * @param MapperOptions|null $options Mapper configuration options
      * @param Denormalizer|null $denormalizer Custom denormalizer instance
      * @param Normalizer|null $normalizer Custom normalizer instance
      * @param CacheInterface|null $cache Cache implementation (null = default ArrayCache, use NullCache to disable)
      * @param TypeResolver|null $typeResolver Custom type resolver instance
      * @param EventDispatcher|null $eventDispatcher Event dispatcher for hooks (null = creates new one)
-     * @param bool $autoValidate Automatically validate objects after denormalization (default: false)
      * @param Validator|null $validator Custom validator instance
      * @param Debugger|null $debugger Debugger for logging operations (null = disabled)
      * @param Profiler|null $profiler Profiler for measuring performance (null = disabled)
      */
     public function __construct(
+        ?MapperOptions $options = null,
         ?Denormalizer $denormalizer = null,
         ?Normalizer $normalizer = null,
         ?CacheInterface $cache = null,
         ?TypeResolver $typeResolver = null,
         ?EventDispatcher $eventDispatcher = null,
-        bool $autoValidate = false,
         ?Validator $validator = null,
         ?Debugger $debugger = null,
         ?Profiler $profiler = null
     ) {
+        $options = $options ?? new MapperOptions();
+
         $cache = $cache ?? new ArrayCache();
         $typeResolver = $typeResolver ?? new TypeResolver();
         $this->eventDispatcher = $eventDispatcher ?? new EventDispatcher();
         $this->metadataFactory = new ClassMetadataFactory($cache);
         $this->validator = $validator ?? new Validator();
-        $this->autoValidate = $autoValidate;
+        $this->autoValidate = $options->autoValidate;
+        $this->strictMode = $options->strictMode;
         $this->debugger = $debugger;
         $this->profiler = $profiler;
 
         $this->denormalizer = $denormalizer ?? new Denormalizer($typeResolver, $this->metadataFactory);
+        $this->denormalizer->setStrictMode($this->strictMode);
         $this->normalizer = $normalizer ?? new Normalizer($typeResolver, $this->metadataFactory);
 
         // Setup event listener for debugging events
@@ -158,6 +163,23 @@ class Mapper
     public function isAutoValidate(): bool
     {
         return $this->autoValidate;
+    }
+
+    /**
+     * Enable or disable strict mode
+     */
+    public function setStrictMode(bool $strictMode): void
+    {
+        $this->strictMode = $strictMode;
+        $this->denormalizer->setStrictMode($strictMode);
+    }
+
+    /**
+     * Check if strict mode is enabled
+     */
+    public function isStrictMode(): bool
+    {
+        return $this->strictMode;
     }
 
     /**
