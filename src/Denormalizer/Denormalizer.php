@@ -9,6 +9,7 @@ use Pocta\DataMapper\Attributes\MapDateTimeProperty;
 use Pocta\DataMapper\Attributes\DiscriminatorMap;
 use Pocta\DataMapper\Exceptions\ValidationException;
 use Pocta\DataMapper\Types\TypeResolver;
+use Pocta\DataMapper\PropertyPathResolver;
 use ReflectionClass;
 use ReflectionParameter;
 use ReflectionProperty;
@@ -234,8 +235,17 @@ class Denormalizer
         $propertyAttributes = $parameter->getAttributes(MapProperty::class);
 
         $jsonKey = $this->getJsonKeyFromParameter($parameter, $dateTimeAttributes, $propertyAttributes);
+        $path = $this->getPathFromParameter($dateTimeAttributes, $propertyAttributes);
 
-        $hasKey = array_key_exists($jsonKey, $data);
+        // Use PropertyPathResolver if path is specified
+        if ($path !== null) {
+            $hasKey = PropertyPathResolver::exists($data, $path);
+            $value = $hasKey ? PropertyPathResolver::resolve($data, $path) : null;
+        } else {
+            $hasKey = array_key_exists($jsonKey, $data);
+            $value = $hasKey ? $data[$jsonKey] : null;
+        }
+
         if (!$hasKey) {
             // If MapPropertyWithFunction present, compute value even when key is missing
             $hasHydrator = !empty($parameter->getAttributes(\Pocta\DataMapper\Attributes\MapPropertyWithFunction::class));
@@ -246,15 +256,14 @@ class Denormalizer
                 if ($parameter->allowsNull()) {
                     return null;
                 }
-                $fullPath = $this->buildFullFieldPath($jsonKey);
+                $fullPath = $this->buildFullFieldPath($path ?? $jsonKey);
                 $this->errors[$fullPath] = "Missing required parameter '{$parameter->getName()}' at path '{$fullPath}'";
                 return null;
             }
         }
 
-        $value = $hasKey ? $data[$jsonKey] : null;
         // Apply hydrator and filters BEFORE type denormalization
-        $value = $this->applyHydratorToParameter($parameter, $value, $jsonKey);
+        $value = $this->applyHydratorToParameter($parameter, $value, $path ?? $jsonKey);
         $value = $this->applyFiltersToParameter($parameter, $value);
         $typeName = $this->getParameterTypeFromAttributes($parameter, $dateTimeAttributes, $propertyAttributes);
         $format = $this->getFormatFromParameter($dateTimeAttributes);
@@ -262,7 +271,7 @@ class Denormalizer
         $arrayOf = $this->getArrayOfFromParameter($dateTimeAttributes, $propertyAttributes);
         $classType = $this->getClassTypeFromParameter($propertyAttributes);
 
-        $fullPath = $this->buildFullFieldPath($jsonKey);
+        $fullPath = $this->buildFullFieldPath($path ?? $jsonKey);
         $typed = $this->denormalizeValue($value, $typeName, $fullPath, $parameter->allowsNull(), $format, $timezone, $arrayOf, $classType);
         // Apply filters AFTER type denormalization
         $typed = $this->applyFiltersToParameter($parameter, $typed);
@@ -283,8 +292,17 @@ class Denormalizer
         $propertyAttributes = $property->getAttributes(MapProperty::class);
 
         $jsonKey = $this->getJsonKeyFromProperty($property, $dateTimeAttributes, $propertyAttributes);
+        $path = $this->getPathFromProperty($dateTimeAttributes, $propertyAttributes);
 
-        $hasKey = array_key_exists($jsonKey, $data);
+        // Use PropertyPathResolver if path is specified
+        if ($path !== null) {
+            $hasKey = PropertyPathResolver::exists($data, $path);
+            $value = $hasKey ? PropertyPathResolver::resolve($data, $path) : null;
+        } else {
+            $hasKey = array_key_exists($jsonKey, $data);
+            $value = $hasKey ? $data[$jsonKey] : null;
+        }
+
         if (!$hasKey) {
             // If MapPropertyWithFunction present, compute value even when key is missing
             $hasHydrator = !empty($property->getAttributes(\Pocta\DataMapper\Attributes\MapPropertyWithFunction::class));
@@ -293,9 +311,8 @@ class Denormalizer
             }
         }
 
-        $value = $hasKey ? $data[$jsonKey] : null;
         // Apply hydrator and filters BEFORE type denormalization
-        $value = $this->applyHydratorToProperty($property, $value, $jsonKey);
+        $value = $this->applyHydratorToProperty($property, $value, $path ?? $jsonKey);
         $value = $this->applyFiltersToProperty($property, $value);
         $typeName = $this->getPropertyTypeFromAttributes($property, $dateTimeAttributes, $propertyAttributes);
         $isNullable = $this->isPropertyNullable($property);
@@ -304,7 +321,7 @@ class Denormalizer
         $arrayOf = $this->getArrayOfFromProperty($dateTimeAttributes, $propertyAttributes);
         $classType = $this->getClassTypeFromProperty($propertyAttributes);
 
-        $fullPath = $this->buildFullFieldPath($jsonKey);
+        $fullPath = $this->buildFullFieldPath($path ?? $jsonKey);
         $typedValue = $this->denormalizeValue($value, $typeName, $fullPath, $isNullable, $format, $timezone, $arrayOf, $classType);
         // Apply filters AFTER type denormalization
         $typedValue = $this->applyFiltersToProperty($property, $typedValue);
@@ -849,6 +866,12 @@ class Denormalizer
             foreach ($constructor->getParameters() as $parameter) {
                 $dateTimeAttributes = $parameter->getAttributes(MapDateTimeProperty::class);
                 $propertyAttributes = $parameter->getAttributes(MapProperty::class);
+                $path = $this->getPathFromParameter($dateTimeAttributes, $propertyAttributes);
+                // If path is used, we can't validate keys in strict mode for nested paths
+                if ($path !== null) {
+                    // For now, we skip validation for path-based properties
+                    continue;
+                }
                 $knownKeys[] = $this->getJsonKeyFromParameter($parameter, $dateTimeAttributes, $propertyAttributes);
             }
         }
@@ -857,6 +880,11 @@ class Denormalizer
         foreach ($reflection->getProperties() as $property) {
             $dateTimeAttributes = $property->getAttributes(MapDateTimeProperty::class);
             $propertyAttributes = $property->getAttributes(MapProperty::class);
+            $path = $this->getPathFromProperty($dateTimeAttributes, $propertyAttributes);
+            // If path is used, we can't validate keys in strict mode for nested paths
+            if ($path !== null) {
+                continue;
+            }
             $jsonKey = $this->getJsonKeyFromProperty($property, $dateTimeAttributes, $propertyAttributes);
             if (!in_array($jsonKey, $knownKeys, true)) {
                 $knownKeys[] = $jsonKey;
@@ -870,5 +898,51 @@ class Denormalizer
                 $this->errors[$fullPath] = "Unknown key '{$inputKey}' at path '{$fullPath}' is not allowed in strict mode";
             }
         }
+    }
+
+    /**
+     * Gets path from parameter attributes
+     *
+     * @param array<\ReflectionAttribute<MapDateTimeProperty>> $dateTimeAttributes
+     * @param array<\ReflectionAttribute<MapProperty>> $propertyAttributes
+     * @return string|null
+     */
+    private function getPathFromParameter(array $dateTimeAttributes, array $propertyAttributes): ?string
+    {
+        // MapDateTimeProperty has priority
+        if (!empty($dateTimeAttributes)) {
+            $attr = $dateTimeAttributes[0]->newInstance();
+            return $attr->path;
+        }
+
+        if (!empty($propertyAttributes)) {
+            $attr = $propertyAttributes[0]->newInstance();
+            return $attr->path;
+        }
+
+        return null;
+    }
+
+    /**
+     * Gets path from property attributes
+     *
+     * @param array<\ReflectionAttribute<MapDateTimeProperty>> $dateTimeAttributes
+     * @param array<\ReflectionAttribute<MapProperty>> $propertyAttributes
+     * @return string|null
+     */
+    private function getPathFromProperty(array $dateTimeAttributes, array $propertyAttributes): ?string
+    {
+        // MapDateTimeProperty has priority
+        if (!empty($dateTimeAttributes)) {
+            $attr = $dateTimeAttributes[0]->newInstance();
+            return $attr->path;
+        }
+
+        if (!empty($propertyAttributes)) {
+            $attr = $propertyAttributes[0]->newInstance();
+            return $attr->path;
+        }
+
+        return null;
     }
 }

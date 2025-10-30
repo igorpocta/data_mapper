@@ -3,7 +3,7 @@
 [![CI](https://github.com/igorpocta/data-mapper/actions/workflows/ci.yml/badge.svg)](https://github.com/igorpocta/data-mapper/actions/workflows/ci.yml)
 [![PHP Version](https://img.shields.io/badge/PHP-8.1%2B-blue)](https://php.net)
 [![PHPStan Level](https://img.shields.io/badge/PHPStan-level%209-brightgreen)](https://phpstan.org)
-[![Tests](https://img.shields.io/badge/tests-274%20passing-success)](.)
+[![Tests](https://img.shields.io/badge/tests-298%20passing-success)](.)
 
 High-performance and type-safe PHP library for bidirectional data mapping between JSON/arrays and objects. Supports constructors, nullable types, enums, DateTime, nested objects, discriminator mapping for polymorphism, filters, and much more.
 
@@ -40,6 +40,7 @@ composer require igorpocta/data-mapper
 ### Mapping
 - **Bidirectional mapping**: JSON/array ↔ objects with automatic conversion
 - **Batch processing**: Efficient mapping of collections with `fromArrayCollection()`, `toJsonCollection()`, etc.
+- **Property path resolver**: Map nested values using dot notation (e.g., `user.address.street`) and array indexes (e.g., `addresses[0].street`)
 - **Type safety**: Full support for PHP 8.1+ types including union and intersection types
 - **Nullable types**: Automatic handling of `?int`, `?string`, etc.
 - **Custom names**: Map to different keys in JSON using attributes
@@ -65,7 +66,7 @@ composer require igorpocta/data-mapper
 
 ### Code Quality
 - **PHPStan Level 9**: Strictest static analysis
-- **100% tested**: 274 unit tests, 902 assertions
+- **100% tested**: 298 unit tests, 948 assertions
 - **Extensibility**: Easy addition of custom data types, filters, and validators
 - **Debug & Profiling**: Integrated tools for performance analysis and optimization
 
@@ -579,6 +580,176 @@ class UserWithConstructor
 ```
 
 ## Advanced Features
+
+### Property Path Resolver (Nested Property Mapping)
+
+The Property Path Resolver allows you to map nested values from complex data structures using dot notation and array indexes. This is useful when working with deeply nested JSON/API responses.
+
+#### Syntax Support
+
+- **Dot notation**: `user.address.street` - access nested objects
+- **Array indexes**: `addresses[0].street` - access array elements
+- **Mixed notation**: `user.addresses[0].streetName` - combine both
+
+#### Basic Usage
+
+```php
+use Pocta\DataMapper\Attributes\MapProperty;
+
+class UserDTO
+{
+    public function __construct(
+        // Map from nested path user.permanentAddress.streetName
+        #[MapProperty(path: 'user.permanentAddress.streetName')]
+        public string $street,
+
+        // Map from nested path user.permanentAddress.city
+        #[MapProperty(path: 'user.permanentAddress.city')]
+        public string $city
+    ) {}
+}
+
+$data = [
+    'user' => [
+        'permanentAddress' => [
+            'streetName' => 'Main Street',
+            'city' => 'Prague'
+        ]
+    ]
+];
+
+$mapper = new Mapper();
+$dto = $mapper->fromArray($data, UserDTO::class);
+// $dto->street = 'Main Street'
+// $dto->city = 'Prague'
+```
+
+#### Array Index Access
+
+```php
+class CompanyDTO
+{
+    public function __construct(
+        // Access first address
+        #[MapProperty(path: 'user.addresses[0].streetName')]
+        public string $firstAddress,
+
+        // Access second address
+        #[MapProperty(path: 'user.addresses[1].streetName')]
+        public string $secondAddress
+    ) {}
+}
+
+$data = [
+    'user' => [
+        'addresses' => [
+            ['streetName' => 'First Street'],
+            ['streetName' => 'Second Street']
+        ]
+    ]
+];
+
+$dto = $mapper->fromArray($data, CompanyDTO::class);
+// $dto->firstAddress = 'First Street'
+// $dto->secondAddress = 'Second Street'
+```
+
+#### Complex Nested Structures
+
+```php
+class ManagerInfo
+{
+    public function __construct(
+        #[MapProperty(path: 'company.departments[0].manager.name')]
+        public string $managerName,
+
+        #[MapProperty(path: 'company.departments[0].manager.email')]
+        public string $managerEmail
+    ) {}
+}
+
+$data = [
+    'company' => [
+        'departments' => [
+            [
+                'name' => 'IT',
+                'manager' => [
+                    'name' => 'John Doe',
+                    'email' => 'john@example.com'
+                ]
+            ]
+        ]
+    ]
+];
+
+$manager = $mapper->fromArray($data, ManagerInfo::class);
+// $manager->managerName = 'John Doe'
+// $manager->managerEmail = 'john@example.com'
+```
+
+#### Nullable Path Values
+
+```php
+class OptionalAddress
+{
+    public function __construct(
+        #[MapProperty(path: 'user.address.street')]
+        public ?string $street = null
+    ) {}
+}
+
+// Missing nested data returns null
+$data = ['user' => ['name' => 'John']];
+$dto = $mapper->fromArray($data, OptionalAddress::class);
+// $dto->street = null (no error thrown)
+```
+
+#### Usage with MapDateTimeProperty
+
+The `path` parameter also works with `MapDateTimeProperty`:
+
+```php
+use Pocta\DataMapper\Attributes\MapDateTimeProperty;
+
+class EventDTO
+{
+    public function __construct(
+        #[MapDateTimeProperty(
+            path: 'event.metadata.createdAt',
+            format: 'Y-m-d H:i:s',
+            timezone: 'Europe/Prague'
+        )]
+        public DateTimeImmutable $createdAt
+    ) {}
+}
+
+$data = [
+    'event' => [
+        'metadata' => [
+            'createdAt' => '2024-01-15 10:30:00'
+        ]
+    ]
+];
+
+$event = $mapper->fromArray($data, EventDTO::class);
+// $event->createdAt is DateTimeImmutable object
+```
+
+#### Important Notes
+
+- **Mutually exclusive**: Cannot use both `name` and `path` parameters together
+- **Nullable handling**: If path doesn't exist and property is nullable, returns `null`
+- **Non-nullable**: If path doesn't exist and property is required, throws `ValidationException`
+- **Strict mode**: Properties with `path` parameter are excluded from unknown key validation
+- **Type safety**: All type conversions and filters work normally with path-resolved values
+
+#### Use Cases
+
+- Mapping from external APIs with nested responses
+- Extracting specific fields from complex JSON structures
+- Simplifying DTOs by flattening nested data
+- Working with GraphQL responses
+- Accessing array elements at specific positions
 
 ### Filters (post-processing)
 
