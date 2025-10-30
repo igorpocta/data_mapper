@@ -3,9 +3,9 @@
 [![CI](https://github.com/igorpocta/data-mapper/actions/workflows/ci.yml/badge.svg)](https://github.com/igorpocta/data-mapper/actions/workflows/ci.yml)
 [![PHP Version](https://img.shields.io/badge/PHP-8.1%2B-blue)](https://php.net)
 [![PHPStan Level](https://img.shields.io/badge/PHPStan-level%209-brightgreen)](https://phpstan.org)
-[![Tests](https://img.shields.io/badge/tests-259%20passing-success)](.)
+[![Tests](https://img.shields.io/badge/tests-274%20passing-success)](.)
 
-High-performance and type-safe PHP library for bidirectional data mapping between JSON/arrays and objects. Supports constructors, nullable types, enums, DateTime, nested objects, filters, and much more.
+High-performance and type-safe PHP library for bidirectional data mapping between JSON/arrays and objects. Supports constructors, nullable types, enums, DateTime, nested objects, discriminator mapping for polymorphism, filters, and much more.
 
 ## Table of Contents
 
@@ -54,6 +54,7 @@ composer require igorpocta/data-mapper
 ### Advanced Features
 - **Constructor properties**: Full support for promoted properties
 - **Partial updates**: Merge partial data into existing objects with `merge()` method
+- **Discriminator mapping**: Polymorphic object mapping based on discriminator fields (vehicles, events, payment methods)
 - **Filters**: 60+ built-in filters for data transformation (trim, lowercase, slugify, etc.)
 - **Hydration**: Custom functions for data transformation using `MapPropertyWithFunction`
 - **Event System**: Hooks for pre/post processing (logging, transformations, error handling)
@@ -64,7 +65,7 @@ composer require igorpocta/data-mapper
 
 ### Code Quality
 - **PHPStan Level 9**: Strictest static analysis
-- **100% tested**: 246 unit tests, 803 assertions
+- **100% tested**: 274 unit tests, 902 assertions
 - **Extensibility**: Easy addition of custom data types, filters, and validators
 - **Debug & Profiling**: Integrated tools for performance analysis and optimization
 
@@ -372,6 +373,144 @@ public function updateUser(int $id, Request $request): Response
 - Respects all type conversions and validations
 - Optional strict mode for security
 - Can skip null values to prevent accidental deletions
+
+### 5. Discriminator Mapping (Polymorphism)
+
+The `DiscriminatorMap` attribute enables polymorphic object mapping based on a discriminator field. This is useful when deserializing data that can represent different concrete classes (e.g., different vehicle types, payment methods, or event types).
+
+**Basic Example:**
+
+```php
+use Pocta\DataMapper\Attributes\DiscriminatorMap;
+use Pocta\DataMapper\Attributes\DiscriminatorProperty;
+
+#[DiscriminatorMap(
+    property: 'type',
+    mapping: [
+        'car' => Car::class,
+        'bike' => Bike::class,
+        'truck' => Truck::class,
+    ]
+)]
+abstract class Vehicle
+{
+    #[DiscriminatorProperty]
+    protected string $type;
+
+    protected string $brand;
+    protected int $year;
+
+    public function __construct(string $type, string $brand, int $year)
+    {
+        $this->type = $type;
+        $this->brand = $brand;
+        $this->year = $year;
+    }
+}
+
+class Car extends Vehicle
+{
+    private int $doors;
+
+    public function __construct(string $brand, int $year, int $doors = 4)
+    {
+        parent::__construct('car', $brand, $year);
+        $this->doors = $doors;
+    }
+}
+
+class Bike extends Vehicle
+{
+    private bool $electric;
+
+    public function __construct(string $brand, int $year, bool $electric = false)
+    {
+        parent::__construct('bike', $brand, $year);
+        $this->electric = $electric;
+    }
+}
+```
+
+**Usage:**
+
+```php
+$mapper = new Mapper();
+
+// The mapper inspects 'type' field and instantiates the correct class
+$carData = ['type' => 'car', 'brand' => 'Toyota', 'year' => 2020, 'doors' => 4];
+$vehicle = $mapper->fromArray($carData, Vehicle::class);
+// Result: Car instance with all properties set
+
+$bikeData = ['type' => 'bike', 'brand' => 'Trek', 'year' => 2021, 'electric' => true];
+$vehicle = $mapper->fromArray($bikeData, Vehicle::class);
+// Result: Bike instance with all properties set
+```
+
+**With Collections:**
+
+```php
+$data = [
+    ['type' => 'car', 'brand' => 'Toyota', 'year' => 2020, 'doors' => 4],
+    ['type' => 'bike', 'brand' => 'Trek', 'year' => 2021, 'electric' => true],
+    ['type' => 'truck', 'brand' => 'Ford', 'year' => 2019, 'capacity' => 5000]
+];
+
+$vehicles = $mapper->fromArrayCollection($data, Vehicle::class);
+// Result: [Car, Bike, Truck] instances
+```
+
+**Custom Property Names:**
+
+You can use `#[MapProperty]` on the discriminator field if your JSON uses a different name:
+
+```php
+use Pocta\DataMapper\Attributes\MapProperty;
+
+#[DiscriminatorMap(
+    property: 'event_type',
+    mapping: [
+        'user_created' => UserCreatedEvent::class,
+        'order_placed' => OrderPlacedEvent::class,
+    ]
+)]
+abstract class Event
+{
+    #[MapProperty(name: 'event_type')]
+    protected string $eventType;
+
+    protected string $timestamp;
+}
+```
+
+**Error Handling:**
+
+The mapper validates discriminator values and provides clear error messages:
+
+```php
+// Missing discriminator field
+$data = ['brand' => 'Toyota', 'year' => 2020];
+$mapper->fromArray($data, Vehicle::class);
+// ValidationException: "Missing discriminator property 'type'"
+
+// Unknown discriminator value
+$data = ['type' => 'airplane', 'brand' => 'Boeing', 'year' => 2022];
+$mapper->fromArray($data, Vehicle::class);
+// ValidationException: "Unknown discriminator value 'airplane'. Available values: car, bike, truck"
+```
+
+**Benefits:**
+- Clean polymorphic deserialization without manual type checking
+- Type-safe: Each concrete class is properly typed
+- Works with all mapper features (validation, filters, nested objects)
+- Integrates seamlessly with collections (`fromArrayCollection`, `fromJsonCollection`)
+- Clear error messages for debugging
+
+**Use Cases:**
+- API payloads with different entity types (vehicles, products, users)
+- Event sourcing with multiple event types
+- Payment processing with different payment methods
+- Notification systems with various notification types
+- Multi-tenant systems with different entity variants
 
 ## Class Definitions
 

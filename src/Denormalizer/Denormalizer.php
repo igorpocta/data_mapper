@@ -6,6 +6,7 @@ namespace Pocta\DataMapper\Denormalizer;
 
 use Pocta\DataMapper\Attributes\MapProperty;
 use Pocta\DataMapper\Attributes\MapDateTimeProperty;
+use Pocta\DataMapper\Attributes\DiscriminatorMap;
 use Pocta\DataMapper\Exceptions\ValidationException;
 use Pocta\DataMapper\Types\TypeResolver;
 use ReflectionClass;
@@ -130,6 +131,9 @@ class Denormalizer
 
         // Push current payload
         $this->contextStack[] = $data;
+
+        // Resolve the actual class to instantiate (handles discriminator mapping)
+        $className = $this->resolveClassName($className, $data);
 
         $reflection = new ReflectionClass($className);
         $constructor = $reflection->getConstructor();
@@ -770,6 +774,60 @@ class Denormalizer
             return self::$globalRootPayload;
         }
         return $this->contextStack[0] ?? ($this->contextStack[count($this->contextStack) - 1] ?? []);
+    }
+
+    /**
+     * Resolves the actual class name to instantiate based on discriminator mapping.
+     * If no discriminator is present, returns the original class name.
+     *
+     * @template T of object
+     * @param class-string<T> $className
+     * @param array<string, mixed> $data
+     * @return class-string<T>
+     * @throws ValidationException
+     */
+    private function resolveClassName(string $className, array $data): string
+    {
+        $reflection = new ReflectionClass($className);
+        $discriminatorAttributes = $reflection->getAttributes(DiscriminatorMap::class);
+
+        if (empty($discriminatorAttributes)) {
+            return $className;
+        }
+
+        /** @var DiscriminatorMap $discriminator */
+        $discriminator = $discriminatorAttributes[0]->newInstance();
+
+        // Check if discriminator property exists in data
+        if (!array_key_exists($discriminator->property, $data)) {
+            $fullPath = $this->buildFullFieldPath($discriminator->property);
+            $this->errors[$fullPath] = "Missing discriminator property '{$discriminator->property}' at path '{$fullPath}'";
+            throw new ValidationException($this->errors);
+        }
+
+        $discriminatorValue = $data[$discriminator->property];
+
+        // Ensure discriminator value is a string (for array key access)
+        if (!is_string($discriminatorValue) && !is_int($discriminatorValue)) {
+            $fullPath = $this->buildFullFieldPath($discriminator->property);
+            $type = get_debug_type($discriminatorValue);
+            $this->errors[$fullPath] = "Discriminator value must be string or int, {$type} given at path '{$fullPath}'";
+            throw new ValidationException($this->errors);
+        }
+
+        // Convert to string for consistent array key access
+        $discriminatorKey = (string) $discriminatorValue;
+
+        // Check if discriminator value is mapped to a class
+        if (!isset($discriminator->mapping[$discriminatorKey])) {
+            $fullPath = $this->buildFullFieldPath($discriminator->property);
+            $availableValues = implode(', ', array_keys($discriminator->mapping));
+            $this->errors[$fullPath] = "Unknown discriminator value '{$discriminatorKey}' at path '{$fullPath}'. Available values: {$availableValues}";
+            throw new ValidationException($this->errors);
+        }
+
+        /** @var class-string<T> */
+        return $discriminator->mapping[$discriminatorKey];
     }
 
     /**
