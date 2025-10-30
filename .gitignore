@@ -1,0 +1,9 @@
+# IDE
+/.idea
+/.vscode
+/.phpunit.cache
+/.claude
+
+# Composer
+/composer.lock
+/vendor

@@ -1,0 +1,35 @@
+{
+	"name": "igorpocta/data-mapper",
+	"description": "Lightweight PHP library for mapping data to objects and back (e.g. JSON ↔ object).",
+	"type": "library",
+	"license": "MIT",
+	"authors": [
+		{
+			"name": "Igor Počta",
+			"email": "igorpocta@qadata.cz"
+		}
+	],
+	"require": {
+		"php": "^8.1"
+	},
+	"autoload": {
+		"psr-4": {
+			"Pocta\\DataMapper\\": "src/"
+		}
+	},
+	"autoload-dev": {
+		"psr-4": {
+			"Tests\\": "tests/"
+		}
+	},
+	"scripts": {
+		"test": "phpunit --colors=always",
+		"phpstan": "phpstan analyse --memory-limit=256M"
+	},
+	"minimum-stability": "stable",
+	"prefer-stable": true,
+	"require-dev": {
+		"phpunit/phpunit": "^10.5",
+		"phpstan/phpstan": "^2.1"
+	}
+}
