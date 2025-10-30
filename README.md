@@ -3,7 +3,7 @@
 [![CI](https://github.com/igorpocta/data-mapper/actions/workflows/ci.yml/badge.svg)](https://github.com/igorpocta/data-mapper/actions/workflows/ci.yml)
 [![PHP Version](https://img.shields.io/badge/PHP-8.1%2B-blue)](https://php.net)
 [![PHPStan Level](https://img.shields.io/badge/PHPStan-level%209-brightgreen)](https://phpstan.org)
-[![Tests](https://img.shields.io/badge/tests-323%20passing-success)](.)
+[![Tests](https://img.shields.io/badge/tests-348%20passing-success)](.)
 
 High-performance and type-safe PHP library for bidirectional data mapping between JSON/arrays and objects. Supports constructors, nullable types, enums, DateTime, nested objects, discriminator mapping for polymorphism, filters, and much more.
 
@@ -842,12 +842,13 @@ class Article
 
 Available filters (overview):
 
-- Strings: `StringTrimFilter`, `StringToLowerFilter`, `StringToUpperFilter`, `CollapseWhitespaceFilter`, `TitleCaseFilter`, `CapitalizeFirstFilter`, `EnsurePrefixFilter`, `EnsureSuffixFilter`, `SubstringFilter`, `TrimLengthFilter`, `PadLeftFilter`, `PadRightFilter`, `ReplaceDiacriticsFilter`, `SlugifyFilter`, `NormalizeUnicodeFilter`.
-- Numbers: `ClampFilter`, `RoundNumberFilter`, `CeilNumberFilter`, `FloorNumberFilter`, `AbsNumberFilter`, `ScaleNumberFilter`, `ToDecimalStringFilter`.
-- Boolean: `ToBoolStrictFilter`, `NullIfTrueFilter`, `NullIfFalseFilter`.
-- Arrays/Collections: `EachFilter`, `UniqueArrayFilter`, `SortArrayFilter`, `SortArrayByKeyFilter`, `ReverseArrayFilter`, `FilterKeysFilter`, `SliceArrayFilter`, `LimitArrayFilter`, `FlattenArrayFilter`, `ArrayCastFilter`.
-- Date/Time: `ToTimezoneFilter`, `StartOfDayFilter`, `EndOfDayFilter`, `TruncateDateTimeFilter`, `AddIntervalFilter`, `SubIntervalFilter`, `ToUnixTimestampFilter`, `EnsureImmutableFilter`.
-- Formatting: `JsonDecodeFilter`, `JsonEncodeFilter`, `UrlEncodeFilter`, `UrlDecodeFilter`, `HtmlEntitiesEncodeFilter`, `HtmlEntitiesDecodeFilter`.
+- **Strings**: `StringTrimFilter`, `StringToLowerFilter`, `StringToUpperFilter`, `CollapseWhitespaceFilter`, `TitleCaseFilter`, `CapitalizeFirstFilter`, `EnsurePrefixFilter`, `EnsureSuffixFilter`, `SubstringFilter`, `TrimLengthFilter`, `PadLeftFilter`, `PadRightFilter`, `ReplaceDiacriticsFilter`, `SlugifyFilter`, `NormalizeUnicodeFilter`, `ReplaceFilter`.
+- **Numbers**: `ClampFilter`, `RoundNumberFilter`, `CeilNumberFilter`, `FloorNumberFilter`, `AbsNumberFilter`, `ScaleNumberFilter`, `ToDecimalStringFilter`.
+- **Boolean**: `ToBoolStrictFilter`, `NullIfTrueFilter`, `NullIfFalseFilter`.
+- **Arrays/Collections**: `EachFilter`, `UniqueArrayFilter`, `SortArrayFilter`, `SortArrayByKeyFilter`, `ReverseArrayFilter`, `FilterKeysFilter`, `SliceArrayFilter`, `LimitArrayFilter`, `FlattenArrayFilter`, `ArrayCastFilter`.
+- **Date/Time**: `ToTimezoneFilter`, `StartOfDayFilter`, `EndOfDayFilter`, `TruncateDateTimeFilter`, `AddIntervalFilter`, `SubIntervalFilter`, `ToUnixTimestampFilter`, `EnsureImmutableFilter`.
+- **Formatting**: `JsonDecodeFilter`, `JsonEncodeFilter`, `UrlEncodeFilter`, `UrlDecodeFilter`, `HtmlEntitiesEncodeFilter`, `HtmlEntitiesDecodeFilter`, `SanitizeHtmlFilter`.
+- **Data Normalization**: `NormalizeEmailFilter`, `NormalizePhoneFilter`, `DefaultValueFilter`, `CoalesceFilter`.
 
 Example of combining multiple filters:
 
@@ -879,6 +880,117 @@ class Tags
 ```
 
 Note: Filters are applied in declaration order. Each filter is null-safe and type-conservative (leaves unsupported types unchanged).
+
+#### Specialized Filters
+
+##### Data Normalization Filters
+
+**NormalizeEmailFilter** - Normalizes email addresses to lowercase and trims whitespace:
+
+```php
+use Pocta\DataMapper\Attributes\Filters\NormalizeEmailFilter;
+
+class User
+{
+    #[NormalizeEmailFilter]
+    public string $email;
+    // Input: "  John.Doe@EXAMPLE.COM  "
+    // Output: "john.doe@example.com"
+}
+```
+
+**NormalizePhoneFilter** - Removes all non-digit characters from phone numbers:
+
+```php
+use Pocta\DataMapper\Attributes\Filters\NormalizePhoneFilter;
+
+class Contact
+{
+    #[NormalizePhoneFilter]
+    public string $phone;
+    // Input: "+1 (555) 123-4567"
+    // Output: "15551234567"
+
+    #[NormalizePhoneFilter(keepPlus: true)]
+    public string $internationalPhone;
+    // Input: "+420 123 456 789"
+    // Output: "+420123456789"
+}
+```
+
+**DefaultValueFilter** - Provides a default value if input is null or empty:
+
+```php
+use Pocta\DataMapper\Attributes\Filters\DefaultValueFilter;
+
+class Article
+{
+    #[DefaultValueFilter('Draft')]
+    public ?string $status;
+    // Input: null → Output: "Draft"
+
+    #[DefaultValueFilter('Untitled', replaceEmpty: true)]
+    public string $title;
+    // Input: "" → Output: "Untitled"
+}
+```
+
+**CoalesceFilter** - Returns the first non-null value from provided fallbacks:
+
+```php
+use Pocta\DataMapper\Attributes\Filters\CoalesceFilter;
+
+class Settings
+{
+    #[CoalesceFilter('default', 'fallback')]
+    public ?string $theme;
+    // Input: null → Output: "default"
+    // Input: "custom" → Output: "custom"
+}
+```
+
+**SanitizeHtmlFilter** - Strips HTML tags or allows only specific tags:
+
+```php
+use Pocta\DataMapper\Attributes\Filters\SanitizeHtmlFilter;
+
+class Post
+{
+    #[SanitizeHtmlFilter]
+    public string $plainText;
+    // Input: "<script>alert('XSS')</script>Hello <b>World</b>"
+    // Output: "alert('XSS')Hello World"
+
+    #[SanitizeHtmlFilter('<b><i><u>')]
+    public string $richText;
+    // Input: "<p>Hello <b>World</b> <script>evil</script></p>"
+    // Output: "Hello <b>World</b> evil"
+}
+```
+
+**ReplaceFilter** - Replaces occurrences of search string with replacement (supports regex):
+
+```php
+use Pocta\DataMapper\Attributes\Filters\ReplaceFilter;
+
+class Product
+{
+    #[ReplaceFilter('_', '-')]
+    public string $slug;
+    // Input: "hello_world_test"
+    // Output: "hello-world-test"
+
+    #[ReplaceFilter('/[^a-z0-9-]/', '', useRegex: true)]
+    public string $urlSafe;
+    // Input: "Hello World! 123"
+    // Output: "elloorld-123"
+
+    #[ReplaceFilter('old', 'new', caseInsensitive: true)]
+    public string $text;
+    // Input: "OLD value OLD"
+    // Output: "new value new"
+}
+```
 
 ### Value Hydration (MapPropertyWithFunction)
 
@@ -1463,6 +1575,57 @@ public int|float $amount;
 ```php
 #[Url]
 public string $website;
+```
+
+#### Uuid
+```php
+#[Uuid]
+public string $id;
+// Validates: "550e8400-e29b-41d4-a716-446655440000"
+
+#[Uuid(version: 4)]
+public string $uuid;
+// Only accepts UUID v4
+```
+
+#### Iban
+```php
+#[Iban]
+public string $bankAccount;
+// Validates: "DE89370400440532013000"
+// Also accepts with spaces: "DE89 3704 0044 0532 0130 00"
+```
+
+#### CreditCard
+```php
+#[CreditCard]
+public string $cardNumber;
+// Validates using Luhn algorithm
+
+#[CreditCard(types: ['visa', 'mastercard'])]
+public string $card;
+// Only allows specific card types: visa, mastercard, amex, discover, diners, jcb
+```
+
+#### Regex
+```php
+#[Regex('/^[A-Z]{3}$/')]
+public string $code;
+// Must be exactly 3 uppercase letters
+
+#[Regex('/^\d{6}$/', message: 'Postal code must be 6 digits')]
+public string $postalCode;
+```
+
+#### MacAddress
+```php
+#[MacAddress]
+public string $macAddress;
+// Supports multiple formats:
+// - Colon: "00:1A:2B:3C:4D:5E"
+// - Dash: "00-1A-2B-3C-4D-5E"
+// - Dot: "001A.2B3C.4D5E"
+// - No separator: "001A2B3C4D5E"
 ```
 
 #### Other Validators
