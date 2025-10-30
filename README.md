@@ -743,6 +743,70 @@ $event = $mapper->fromArray($data, EventDTO::class);
 - **Strict mode**: Properties with `path` parameter are excluded from unknown key validation
 - **Type safety**: All type conversions and filters work normally with path-resolved values
 
+#### Error Handling with Detailed Context
+
+When path resolution fails, the mapper provides detailed error messages that help you quickly identify the problem:
+
+```php
+class UserDTO
+{
+    public function __construct(
+        #[MapProperty(path: 'user.profile.email')]
+        public string $email
+    ) {}
+}
+
+$data = [
+    'user' => [
+        'profile' => [
+            'firstName' => 'John',
+            'lastName' => 'Doe',
+            'age' => 30
+            // 'email' is missing!
+        ]
+    ]
+];
+
+try {
+    $mapper->fromArray($data, UserDTO::class);
+} catch (ValidationException $e) {
+    $errors = $e->getErrors();
+    // Result:
+    // [
+    //     'user.profile.email' => "Missing required property 'email' at path 'user.profile.email'
+    //                              (path resolution failed at 'user.profile.email',
+    //                              available keys: [firstName, lastName, age])"
+    // ]
+}
+```
+
+**Error message features:**
+- **Full path**: Shows exactly where the data is missing
+- **Failed location**: Indicates at which point in the path resolution failed
+- **Available keys**: Lists what keys are actually present at that location
+- **Array bounds**: For array access, shows how many elements exist
+
+```php
+// Array index out of bounds
+#[MapProperty(path: 'addresses[5].street')]
+public string $street;
+
+// Data has only 2 addresses
+$data = ['addresses' => [['street' => 'A'], ['street' => 'B']]];
+
+// Error: "Missing required property 'street' at path 'addresses[5].street'
+//         (path resolution failed at 'addresses.5', array has 2 elements)"
+```
+
+**Invalid path syntax:**
+```php
+#[MapProperty(path: 'addresses[abc].street')] // Invalid: non-numeric index
+public string $street;
+
+// Error: "Invalid property path syntax for parameter 'street':
+//         array index must be numeric in 'addresses[abc].street'"
+```
+
 #### Use Cases
 
 - Mapping from external APIs with nested responses

@@ -239,8 +239,15 @@ class Denormalizer
 
         // Use PropertyPathResolver if path is specified
         if ($path !== null) {
-            $hasKey = PropertyPathResolver::exists($data, $path);
-            $value = $hasKey ? PropertyPathResolver::resolve($data, $path) : null;
+            try {
+                $hasKey = PropertyPathResolver::exists($data, $path);
+                $value = $hasKey ? PropertyPathResolver::resolve($data, $path) : null;
+            } catch (InvalidArgumentException $e) {
+                // Invalid path syntax
+                $fullPath = $this->buildFullFieldPath($path);
+                $this->errors[$fullPath] = "Invalid property path syntax for parameter '{$parameter->getName()}': {$e->getMessage()}";
+                return null;
+            }
         } else {
             $hasKey = array_key_exists($jsonKey, $data);
             $value = $hasKey ? $data[$jsonKey] : null;
@@ -257,7 +264,12 @@ class Denormalizer
                     return null;
                 }
                 $fullPath = $this->buildFullFieldPath($path ?? $jsonKey);
-                $this->errors[$fullPath] = "Missing required parameter '{$parameter->getName()}' at path '{$fullPath}'";
+                if ($path !== null) {
+                    // Provide more context for path resolution failures
+                    $this->errors[$fullPath] = $this->buildPathResolutionError($parameter->getName(), $path, $data, $fullPath);
+                } else {
+                    $this->errors[$fullPath] = "Missing required parameter '{$parameter->getName()}' at path '{$fullPath}'";
+                }
                 return null;
             }
         }
@@ -296,8 +308,15 @@ class Denormalizer
 
         // Use PropertyPathResolver if path is specified
         if ($path !== null) {
-            $hasKey = PropertyPathResolver::exists($data, $path);
-            $value = $hasKey ? PropertyPathResolver::resolve($data, $path) : null;
+            try {
+                $hasKey = PropertyPathResolver::exists($data, $path);
+                $value = $hasKey ? PropertyPathResolver::resolve($data, $path) : null;
+            } catch (InvalidArgumentException $e) {
+                // Invalid path syntax
+                $fullPath = $this->buildFullFieldPath($path);
+                $this->errors[$fullPath] = "Invalid property path syntax for property '{$property->getName()}': {$e->getMessage()}";
+                return;
+            }
         } else {
             $hasKey = array_key_exists($jsonKey, $data);
             $value = $hasKey ? $data[$jsonKey] : null;
@@ -307,6 +326,13 @@ class Denormalizer
             // If MapPropertyWithFunction present, compute value even when key is missing
             $hasHydrator = !empty($property->getAttributes(\Pocta\DataMapper\Attributes\MapPropertyWithFunction::class));
             if (!$hasHydrator) {
+                // For properties (not in constructor), missing data is not an error unless required
+                // Check if property is required (not nullable and no default value)
+                $isNullable = $this->isPropertyNullable($property);
+                if (!$isNullable && $path !== null) {
+                    $fullPath = $this->buildFullFieldPath($path);
+                    $this->errors[$fullPath] = $this->buildPathResolutionError($property->getName(), $path, $data, $fullPath);
+                }
                 return;
             }
         }
@@ -944,5 +970,78 @@ class Denormalizer
         }
 
         return null;
+    }
+
+    /**
+     * Builds a detailed error message for path resolution failures
+     *
+     * @param string $propertyName Property or parameter name
+     * @param string $path The property path that failed
+     * @param array<string, mixed> $data The input data
+     * @param string $fullPath Full path including any prefix
+     * @return string Detailed error message with context
+     */
+    private function buildPathResolutionError(string $propertyName, string $path, array $data, string $fullPath): string
+    {
+        // Parse the path to find where it fails
+        $segments = explode('.', str_replace(['[', ']'], ['.', ''], $path));
+        $current = $data;
+        $failedAt = null;
+        $availableKeys = [];
+
+        foreach ($segments as $index => $segment) {
+            if ($segment === '') {
+                continue;
+            }
+
+            if (!is_array($current)) {
+                $failedAt = implode('.', array_slice($segments, 0, $index));
+                break;
+            }
+
+            // Check if it's a numeric index
+            if (is_numeric($segment)) {
+                $idx = (int) $segment;
+                if (!isset($current[$idx])) {
+                    $failedAt = implode('.', array_slice($segments, 0, $index + 1));
+                    $availableKeys = array_keys($current);
+                    break;
+                }
+                $current = $current[$idx];
+            } else {
+                if (!array_key_exists($segment, $current)) {
+                    $failedAt = implode('.', array_slice($segments, 0, $index + 1));
+                    $availableKeys = array_keys($current);
+                    break;
+                }
+                $current = $current[$segment];
+            }
+        }
+
+        // Build error message with context
+        $message = "Missing required property '{$propertyName}' at path '{$fullPath}'";
+
+        if ($failedAt !== null) {
+            $message .= " (path resolution failed at '{$failedAt}'";
+
+            if (!empty($availableKeys)) {
+                // Filter out numeric keys for cleaner output
+                $namedKeys = array_filter($availableKeys, fn($k) => !is_int($k));
+                if (!empty($namedKeys)) {
+                    $keysList = implode(', ', array_slice($namedKeys, 0, 5));
+                    if (count($namedKeys) > 5) {
+                        $keysList .= ', ...';
+                    }
+                    $message .= ", available keys: [{$keysList}]";
+                } else {
+                    // All keys are numeric - it's an array
+                    $message .= ", array has " . count($availableKeys) . " elements";
+                }
+            }
+
+            $message .= ')';
+        }
+
+        return $message;
     }
 }

@@ -120,6 +120,140 @@ class PropertyPathMappingTest extends TestCase
 
         new MapProperty(name: 'street', path: 'user.address.street');
     }
+
+    public function testMapPropertyPathGivesDetailedErrorWhenMissingKey(): void
+    {
+        $data = [
+            'user' => [
+                'profile' => [
+                    'firstName' => 'John',
+                    'lastName' => 'Doe',
+                    'age' => 30
+                ]
+            ]
+        ];
+
+        try {
+            $this->mapper->fromArray($data, UserWithMissingPath::class);
+            $this->fail('Expected ValidationException to be thrown');
+        } catch (\Pocta\DataMapper\Exceptions\ValidationException $e) {
+            $errors = $e->getErrors();
+            $this->assertArrayHasKey('user.profile.email', $errors);
+            $message = $errors['user.profile.email'];
+
+            // Check that error contains context about where it failed and available keys
+            $this->assertStringContainsString("Missing required property 'email'", $message);
+            $this->assertStringContainsString('path resolution failed', $message);
+            $this->assertStringContainsString('available keys:', $message);
+            $this->assertStringContainsString('firstName', $message);
+        }
+    }
+
+    public function testMapPropertyPathGivesDetailedErrorWhenArrayIndexOutOfBounds(): void
+    {
+        $data = [
+            'user' => [
+                'addresses' => [
+                    ['street' => 'First Street']
+                    // Only one address, but we try to access index 2
+                ]
+            ]
+        ];
+
+        try {
+            $this->mapper->fromArray($data, UserWithOutOfBoundsIndex::class);
+            $this->fail('Expected ValidationException to be thrown');
+        } catch (\Pocta\DataMapper\Exceptions\ValidationException $e) {
+            $errors = $e->getErrors();
+            $this->assertArrayHasKey('user.addresses[2].street', $errors);
+            $message = $errors['user.addresses[2].street'];
+
+            // Check that error mentions array bounds
+            $this->assertStringContainsString("Missing required property 'street'", $message);
+            $this->assertStringContainsString('path resolution failed', $message);
+            $this->assertStringContainsString('array has 1 elements', $message);
+        }
+    }
+
+    public function testMapPropertyPathGivesDetailedErrorWhenNestedPathMissing(): void
+    {
+        $data = [
+            'company' => [
+                'name' => 'ACME Corp'
+                // 'departments' key is missing entirely
+            ]
+        ];
+
+        try {
+            $this->mapper->fromArray($data, CompanyWithMissingDepartment::class);
+            $this->fail('Expected ValidationException to be thrown');
+        } catch (\Pocta\DataMapper\Exceptions\ValidationException $e) {
+            $errors = $e->getErrors();
+            $this->assertArrayHasKey('company.departments[0].name', $errors);
+            $message = $errors['company.departments[0].name'];
+
+            // Check that error shows where path resolution failed
+            $this->assertStringContainsString("Missing required property 'departmentName'", $message);
+            $this->assertStringContainsString('path resolution failed at', $message);
+            $this->assertStringContainsString('available keys:', $message);
+            $this->assertStringContainsString('name', $message);
+        }
+    }
+
+    public function testMapPropertyPathInvalidSyntaxGivesError(): void
+    {
+        $data = [
+            'user' => ['name' => 'John']
+        ];
+
+        try {
+            $this->mapper->fromArray($data, UserWithInvalidPathSyntax::class);
+            $this->fail('Expected ValidationException to be thrown');
+        } catch (\Pocta\DataMapper\Exceptions\ValidationException $e) {
+            $errors = $e->getErrors();
+            $this->assertNotEmpty($errors);
+
+            // Should contain error about invalid syntax
+            $firstError = reset($errors);
+            $this->assertStringContainsString('Invalid property path syntax', $firstError);
+        }
+    }
+}
+
+class UserWithMissingPath
+{
+    public function __construct(
+        #[MapProperty(path: 'user.profile.email')]
+        public string $email
+    ) {
+    }
+}
+
+class UserWithOutOfBoundsIndex
+{
+    public function __construct(
+        #[MapProperty(path: 'user.addresses[2].street')]
+        public string $street
+    ) {
+    }
+}
+
+class CompanyWithMissingDepartment
+{
+    public function __construct(
+        #[MapProperty(path: 'company.departments[0].name')]
+        public string $departmentName
+    ) {
+    }
+}
+
+class UserWithInvalidPathSyntax
+{
+    public function __construct(
+        #[MapProperty(path: 'user.addresses[abc].street')]
+        public string $street
+    ) {
+    }
 }
 
 class UserWithNestedAddress
