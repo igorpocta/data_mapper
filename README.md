@@ -3,7 +3,7 @@
 [![CI](https://github.com/igorpocta/data-mapper/actions/workflows/ci.yml/badge.svg)](https://github.com/igorpocta/data-mapper/actions/workflows/ci.yml)
 [![PHP Version](https://img.shields.io/badge/PHP-8.1%2B-blue)](https://php.net)
 [![PHPStan Level](https://img.shields.io/badge/PHPStan-level%209-brightgreen)](https://phpstan.org)
-[![Tests](https://img.shields.io/badge/tests-348%20passing-success)](.)
+[![Tests](https://img.shields.io/badge/tests-376%20passing-success)](.)
 
 High-performance and type-safe PHP library for bidirectional data mapping between JSON/arrays and objects. Supports constructors, nullable types, enums, DateTime, nested objects, discriminator mapping for polymorphism, filters, and much more.
 
@@ -1797,7 +1797,136 @@ $size = $cache->size();
 **Advantages**: Persistent, production-ready, automatic expiration
 **Disadvantages**: Slower than in-memory cache, requires filesystem access
 
-#### 3. NullCache
+#### 3. RedisCache
+Distributed Redis cache, ideal for multi-server production environments:
+
+```php
+use Pocta\DataMapper\Cache\RedisCache;
+use Redis;
+
+// Using phpredis extension (recommended)
+$redis = new Redis();
+$redis->connect('127.0.0.1', 6379);
+
+// Basic usage
+$cache = new RedisCache($redis);
+$mapper = new Mapper(cache: $cache);
+
+// With custom prefix and TTL
+$cache = new RedisCache(
+    redis: $redis,
+    prefix: 'mapper:',      // Prefix for all keys
+    defaultTtl: 3600        // Default TTL: 1 hour
+);
+
+$mapper = new Mapper(cache: $cache);
+```
+
+**Using Predis library (alternative):**
+
+```php
+// composer require predis/predis
+use Predis\Client;
+
+$redis = new Client([
+    'scheme' => 'tcp',
+    'host'   => '127.0.0.1',
+    'port'   => 6379,
+]);
+
+$cache = new RedisCache($redis, prefix: 'app:mapper:');
+$mapper = new Mapper(cache: $cache);
+```
+
+**Features:**
+- Distributed caching across multiple servers
+- TTL (time to live) support with automatic expiration
+- Key prefix isolation for multiple applications
+- Atomic operations (increment/decrement)
+- Supports both phpredis and Predis
+- Cache statistics and monitoring
+- Connection health checks (ping)
+
+**Advanced operations:**
+
+```php
+$cache = new RedisCache($redis, prefix: 'myapp:');
+
+// Set with custom TTL
+$cache->set('key', 'value', 3600); // Expires in 1 hour
+
+// Set with no expiration
+$cache->set('permanent', 'value', 0);
+
+// Get TTL for a key
+$ttl = $cache->getTtl('key'); // Seconds remaining, -1 = no expiry, -2 = doesn't exist
+
+// Change expiration time
+$cache->expire('key', 7200); // Set to 2 hours
+
+// Remove expiration (persist forever)
+$cache->persist('key');
+
+// Increment/Decrement (atomic operations)
+$cache->increment('counter');        // +1
+$cache->increment('counter', 5);     // +5
+$cache->decrement('counter');        // -1
+$cache->decrement('counter', 3);     // -3
+
+// Get cache statistics
+$stats = $cache->getStats();
+// [
+//     'total' => 42,              // Number of cache entries
+//     'prefix' => 'myapp:',       // Key prefix
+//     'ttl_default' => 3600,      // Default TTL in seconds
+//     'driver' => 'phpredis'      // Driver type (phpredis or predis)
+// ]
+
+// Get all cache keys (without prefix)
+$keys = $cache->keys();
+
+// Get cache size
+$size = $cache->size();
+
+// Health check
+$isConnected = $cache->ping(); // true/false
+
+// Redis server info
+$info = $cache->info();
+```
+
+**Production setup with persistence and clustering:**
+
+```php
+// Single Redis instance
+$redis = new Redis();
+$redis->connect('127.0.0.1', 6379);
+$redis->auth('your-password');          // Optional authentication
+$redis->select(1);                      // Use database 1
+$cache = new RedisCache($redis, prefix: 'prod:mapper:', defaultTtl: 7200);
+
+// Redis Sentinel (high availability)
+$redis = new Redis();
+$redis->connect('sentinel-host', 26379);
+// Configure sentinel...
+
+// Redis Cluster (for horizontal scaling)
+// Requires redis-cluster support
+```
+
+**Advantages**:
+- Fast in-memory performance
+- Distributed across multiple servers
+- Persistence to disk (optional)
+- High availability with replication
+- Horizontal scaling with clustering
+
+**Disadvantages**:
+- Requires Redis server
+- Network latency for remote connections
+- Additional infrastructure to maintain
+
+#### 4. NullCache
 Disable caching (for debugging):
 
 ```php
@@ -1806,48 +1935,49 @@ use Pocta\DataMapper\Cache\NullCache;
 $mapper = new Mapper(cache: new NullCache());
 ```
 
-### Custom Cache Implementation (PSR-16 compatible)
+### Custom Cache Implementation
+
+You can create custom cache adapters by implementing `CacheInterface`:
 
 ```php
 use Pocta\DataMapper\Cache\CacheInterface;
 
-class RedisCache implements CacheInterface
+class MemcachedCache implements CacheInterface
 {
-    public function __construct(private \Redis $redis) {}
+    public function __construct(private \Memcached $memcached, private string $prefix = 'mapper:') {}
 
     public function get(string $key, mixed $default = null): mixed
     {
-        $value = $this->redis->get($key);
-        return $value !== false ? unserialize($value) : $default;
+        $value = $this->memcached->get($this->prefix . $key);
+        return $value !== false ? $value : $default;
     }
 
     public function set(string $key, mixed $value, ?int $ttl = null): bool
     {
-        return $ttl === null
-            ? $this->redis->set($key, serialize($value))
-            : $this->redis->setex($key, $ttl, serialize($value));
+        return $this->memcached->set($this->prefix . $key, $value, $ttl ?? 0);
     }
 
     public function has(string $key): bool
     {
-        return $this->redis->exists($key) > 0;
+        $this->memcached->get($this->prefix . $key);
+        return $this->memcached->getResultCode() !== \Memcached::RES_NOTFOUND;
     }
 
     public function delete(string $key): bool
     {
-        return $this->redis->del($key) > 0;
+        return $this->memcached->delete($this->prefix . $key);
     }
 
     public function clear(): bool
     {
-        return $this->redis->flushDB();
+        return $this->memcached->flush();
     }
 }
 
 // Usage
-$redis = new \Redis();
-$redis->connect('127.0.0.1', 6379);
-$mapper = new Mapper(cache: new RedisCache($redis));
+$memcached = new \Memcached();
+$memcached->addServer('127.0.0.1', 11211);
+$mapper = new Mapper(cache: new MemcachedCache($memcached));
 ```
 
 ### Cache Management
@@ -1866,18 +1996,29 @@ $metadata = $factory->getMetadata(User::class);
 
 ### Performance Tips
 
-1. **Production cache**: Use FileCache or Redis/Memcached for persistent caching
+1. **Choose the right cache backend**:
 
 ```php
-// Development: Use ArrayCache (fast, but lost after request)
+// Development: ArrayCache (fastest, single request only)
 $mapper = new Mapper(cache: new ArrayCache());
 
-// Production: Use FileCache (persistent across requests)
+// Production (single server): FileCache (persistent, no dependencies)
 $mapper = new Mapper(cache: new FileCache('/var/cache/data-mapper', 3600));
 
-// Enterprise: Use Redis/Memcached for distributed caching
-$mapper = new Mapper(cache: new RedisCache($redis));
+// Production (multi-server): RedisCache (distributed, scalable)
+$redis = new Redis();
+$redis->connect('127.0.0.1', 6379);
+$mapper = new Mapper(cache: new RedisCache($redis, prefix: 'app:mapper:', defaultTtl: 7200));
 ```
+
+**Cache comparison:**
+
+| Cache Type | Speed | Persistence | Multi-server | Use Case |
+|------------|-------|-------------|--------------|----------|
+| ArrayCache | Fastest | No | No | Development, testing |
+| FileCache | Fast | Yes | No | Single-server production |
+| RedisCache | Very Fast | Optional | Yes | Multi-server, clustering |
+| NullCache | N/A | No | No | Debugging only |
 
 2. **Cache warmup**: Pre-generate metadata at application startup
 
