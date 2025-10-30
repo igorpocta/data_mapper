@@ -3,7 +3,7 @@
 [![CI](https://github.com/igorpocta/data-mapper/actions/workflows/ci.yml/badge.svg)](https://github.com/igorpocta/data-mapper/actions/workflows/ci.yml)
 [![PHP Version](https://img.shields.io/badge/PHP-8.1%2B-blue)](https://php.net)
 [![PHPStan Level](https://img.shields.io/badge/PHPStan-level%209-brightgreen)](https://phpstan.org)
-[![Tests](https://img.shields.io/badge/tests-228%20passing-success)](.)
+[![Tests](https://img.shields.io/badge/tests-246%20passing-success)](.)
 
 High-performance and type-safe PHP library for bidirectional data mapping between JSON/arrays and objects. Supports constructors, nullable types, enums, DateTime, nested objects, filters, and much more.
 
@@ -39,6 +39,7 @@ composer require igorpocta/data-mapper
 
 ### Mapping
 - **Bidirectional mapping**: JSON/array ↔ objects with automatic conversion
+- **Batch processing**: Efficient mapping of collections with `fromArrayCollection()`, `toJsonCollection()`, etc.
 - **Type safety**: Full support for PHP 8.1+ types including union and intersection types
 - **Nullable types**: Automatic handling of `?int`, `?string`, etc.
 - **Custom names**: Map to different keys in JSON using attributes
@@ -62,7 +63,7 @@ composer require igorpocta/data-mapper
 
 ### Code Quality
 - **PHPStan Level 9**: Strictest static analysis
-- **100% tested**: 228 unit tests, 749 assertions
+- **100% tested**: 246 unit tests, 803 assertions
 - **Extensibility**: Easy addition of custom data types, filters, and validators
 - **Debug & Profiling**: Integrated tools for performance analysis and optimization
 
@@ -230,6 +231,66 @@ $json = $mapper->toJson($user);
 
 // To array
 $array = $mapper->toArray($user);
+```
+
+### 3. Batch Processing (Collections)
+
+Working with multiple objects at once is more efficient than processing them individually:
+
+```php
+use Pocta\DataMapper\Mapper;
+
+$mapper = new Mapper();
+
+// From array of arrays to array of objects
+$data = [
+    ['id' => 1, 'name' => 'John', 'active' => true],
+    ['id' => 2, 'name' => 'Jane', 'active' => false],
+    ['id' => 3, 'name' => 'Bob', 'active' => true],
+];
+$users = $mapper->fromArrayCollection($data, User::class);
+// Returns: User[]
+
+// From JSON array to array of objects
+$json = '[
+    {"id": 1, "name": "John", "active": true},
+    {"id": 2, "name": "Jane", "active": false}
+]';
+$users = $mapper->fromJsonCollection($json, User::class);
+// Returns: User[]
+
+// From array of objects to array of arrays
+$users = [new User(1, 'John', true), new User(2, 'Jane', false)];
+$data = $mapper->toArrayCollection($users);
+// Returns: [['id' => 1, 'name' => 'John', ...], ...]
+
+// From array of objects to JSON array
+$json = $mapper->toJsonCollection($users);
+// Returns: '[{"id":1,"name":"John",...},{"id":2,"name":"Jane",...}]'
+```
+
+**Benefits of batch processing:**
+- Cleaner code - no manual loops
+- Consistent error handling across all items
+- Better integration with profiler and debugger
+- Type-safe with PHPStan generics
+
+**Validation in collections:**
+```php
+// With strict mode, all items are validated
+$mapper = new Mapper(MapperOptions::withStrictMode());
+
+$data = [
+    ['id' => 1, 'name' => 'John'],
+    ['id' => 2, 'name' => 'Jane', 'unknown' => 'error'], // This will throw
+];
+
+try {
+    $users = $mapper->fromArrayCollection($data, User::class);
+} catch (ValidationException $e) {
+    // Error during processing second item
+    echo $e->getMessage();
+}
 ```
 
 ## Class Definitions

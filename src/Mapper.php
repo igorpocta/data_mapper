@@ -295,6 +295,61 @@ class Mapper
     }
 
     /**
+     * Maps a collection of arrays to a collection of objects
+     *
+     * @template T of object
+     * @param array<int, array<string, mixed>> $collection Array of associative arrays
+     * @param class-string<T> $className
+     * @return array<int, T> Array of objects
+     * @throws \Pocta\DataMapper\Exceptions\ValidationException
+     */
+    public function fromArrayCollection(array $collection, string $className): array
+    {
+        $this->profiler?->start('fromArrayCollection');
+        $this->debugger?->logOperation('fromArrayCollection', ['count' => count($collection)], $className);
+
+        try {
+            $results = [];
+            foreach ($collection as $index => $data) {
+                $results[] = $this->fromArray($data, $className);
+            }
+            return $results;
+        } finally {
+            $this->profiler?->stop('fromArrayCollection');
+        }
+    }
+
+    /**
+     * Maps a JSON array to a collection of objects
+     *
+     * @template T of object
+     * @param string $json JSON array string
+     * @param class-string<T> $className
+     * @return array<int, T> Array of objects
+     * @throws JsonException
+     * @throws InvalidArgumentException
+     * @throws \Pocta\DataMapper\Exceptions\ValidationException
+     */
+    public function fromJsonCollection(string $json, string $className): array
+    {
+        $this->profiler?->start('fromJsonCollection');
+        $this->debugger?->logOperation('fromJsonCollection', $json, $className);
+
+        try {
+            $data = json_decode($json, true, 512, JSON_THROW_ON_ERROR);
+
+            if (!is_array($data)) {
+                throw new InvalidArgumentException('JSON must decode to an array');
+            }
+
+            /** @var array<int, array<string, mixed>> $data */
+            return $this->fromArrayCollection($data, $className);
+        } finally {
+            $this->profiler?->stop('fromJsonCollection');
+        }
+    }
+
+    /**
      * Maps an object to JSON string
      *
      * @param object $object
@@ -311,6 +366,26 @@ class Mapper
             return json_encode($data, JSON_THROW_ON_ERROR);
         } finally {
             $this->profiler?->stop('toJson');
+        }
+    }
+
+    /**
+     * Maps a collection of objects to JSON array string
+     *
+     * @param array<int, object> $collection Array of objects
+     * @return string JSON array string
+     * @throws JsonException
+     */
+    public function toJsonCollection(array $collection): string
+    {
+        $this->profiler?->start('toJsonCollection');
+        $this->debugger?->logOperation('toJsonCollection', ['count' => count($collection)]);
+
+        try {
+            $data = $this->toArrayCollection($collection);
+            return json_encode($data, JSON_THROW_ON_ERROR);
+        } finally {
+            $this->profiler?->stop('toJsonCollection');
         }
     }
 
@@ -344,6 +419,28 @@ class Mapper
             return $postEvent->data;
         } finally {
             $this->profiler?->stop('toArray');
+        }
+    }
+
+    /**
+     * Maps a collection of objects to an array of associative arrays
+     *
+     * @param array<int, object> $collection Array of objects
+     * @return array<int, array<string, mixed>> Array of associative arrays
+     */
+    public function toArrayCollection(array $collection): array
+    {
+        $this->profiler?->start('toArrayCollection');
+        $this->debugger?->logOperation('toArrayCollection', ['count' => count($collection)]);
+
+        try {
+            $results = [];
+            foreach ($collection as $object) {
+                $results[] = $this->toArray($object);
+            }
+            return $results;
+        } finally {
+            $this->profiler?->stop('toArrayCollection');
         }
     }
 
