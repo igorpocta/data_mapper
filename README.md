@@ -3,7 +3,7 @@
 [![CI](https://github.com/igorpocta/data-mapper/actions/workflows/ci.yml/badge.svg)](https://github.com/igorpocta/data-mapper/actions/workflows/ci.yml)
 [![PHP Version](https://img.shields.io/badge/PHP-8.1%2B-blue)](https://php.net)
 [![PHPStan Level](https://img.shields.io/badge/PHPStan-level%209-brightgreen)](https://phpstan.org)
-[![Tests](https://img.shields.io/badge/tests-298%20passing-success)](.)
+[![Tests](https://img.shields.io/badge/tests-323%20passing-success)](.)
 
 High-performance and type-safe PHP library for bidirectional data mapping between JSON/arrays and objects. Supports constructors, nullable types, enums, DateTime, nested objects, discriminator mapping for polymorphism, filters, and much more.
 
@@ -66,7 +66,7 @@ composer require igorpocta/data-mapper
 
 ### Code Quality
 - **PHPStan Level 9**: Strictest static analysis
-- **100% tested**: 298 unit tests, 948 assertions
+- **100% tested**: 323 unit tests, 1030 assertions
 - **Extensibility**: Easy addition of custom data types, filters, and validators
 - **Debug & Profiling**: Integrated tools for performance analysis and optimization
 
@@ -1574,7 +1574,67 @@ $size = $cache->size();              // Number of items
 **Advantages**: Very fast, no dependencies
 **Disadvantages**: Data is lost after request ends
 
-#### 2. NullCache
+#### 2. FileCache
+Persistent file-based cache, ideal for production:
+
+```php
+use Pocta\DataMapper\Cache\FileCache;
+
+// Basic usage with default settings
+$cache = new FileCache('/path/to/cache/directory');
+$mapper = new Mapper(cache: $cache);
+
+// With custom TTL (time to live in seconds)
+$cache = new FileCache(
+    cacheDir: '/var/cache/data-mapper',
+    defaultTtl: 3600, // 1 hour
+    extension: '.cache.php'
+);
+
+$mapper = new Mapper(cache: $cache);
+```
+
+**Features:**
+- Persistent storage across requests
+- TTL (time to live) support with automatic expiration
+- Atomic writes to prevent race conditions
+- Automatic cleanup of expired entries
+- Cache statistics and monitoring
+
+**Advanced operations:**
+
+```php
+$cache = new FileCache('/path/to/cache');
+
+// Set with custom TTL
+$cache->set('key', 'value', 3600); // Expires in 1 hour
+
+// Set with no expiration
+$cache->set('permanent', 'value', 0);
+
+// Cleanup expired entries
+$deleted = $cache->cleanup(); // Returns number of deleted entries
+
+// Get cache statistics
+$stats = $cache->getStats();
+// [
+//     'total' => 42,           // Number of cache files
+//     'size_bytes' => 1024000, // Total size in bytes
+//     'oldest' => 1640000000,  // Timestamp of oldest entry
+//     'newest' => 1640100000   // Timestamp of newest entry
+// ]
+
+// Get all cache keys
+$keys = $cache->keys();
+
+// Get cache size
+$size = $cache->size();
+```
+
+**Advantages**: Persistent, production-ready, automatic expiration
+**Disadvantages**: Slower than in-memory cache, requires filesystem access
+
+#### 3. NullCache
 Disable caching (for debugging):
 
 ```php
@@ -1643,7 +1703,19 @@ $metadata = $factory->getMetadata(User::class);
 
 ### Performance Tips
 
-1. **Production cache**: Use Redis/Memcached instead of ArrayCache
+1. **Production cache**: Use FileCache or Redis/Memcached for persistent caching
+
+```php
+// Development: Use ArrayCache (fast, but lost after request)
+$mapper = new Mapper(cache: new ArrayCache());
+
+// Production: Use FileCache (persistent across requests)
+$mapper = new Mapper(cache: new FileCache('/var/cache/data-mapper', 3600));
+
+// Enterprise: Use Redis/Memcached for distributed caching
+$mapper = new Mapper(cache: new RedisCache($redis));
+```
+
 2. **Cache warmup**: Pre-generate metadata at application startup
 
 ```php
@@ -1651,6 +1723,21 @@ $metadata = $factory->getMetadata(User::class);
 $classes = [User::class, Product::class, Order::class];
 foreach ($classes as $class) {
     $mapper->getMetadataFactory()->getMetadata($class);
+}
+```
+
+3. **Periodic cleanup**: For FileCache, regularly cleanup expired entries
+
+```php
+// In a scheduled task (cron job)
+$cache = new FileCache('/var/cache/data-mapper');
+$deleted = $cache->cleanup();
+echo "Cleaned up {$deleted} expired cache entries\n";
+
+// Monitor cache size
+$stats = $cache->getStats();
+if ($stats['size_bytes'] > 100 * 1024 * 1024) { // 100MB
+    echo "Warning: Cache is getting large ({$stats['size_bytes']} bytes)\n";
 }
 ```
 
