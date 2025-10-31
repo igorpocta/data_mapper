@@ -25,6 +25,8 @@ class Denormalizer
 
     private bool $strictMode = false;
 
+    private bool $throwOnMissingData = true;
+
     /**
      * Context stack of payloads for nested denormalization levels.
      * Bottom (index 0) = root payload; Top (end) = current payload.
@@ -107,6 +109,22 @@ class Denormalizer
     public function isStrictMode(): bool
     {
         return $this->strictMode;
+    }
+
+    /**
+     * Enable or disable throwing on missing data.
+     */
+    public function setThrowOnMissingData(bool $throwOnMissingData): void
+    {
+        $this->throwOnMissingData = $throwOnMissingData;
+    }
+
+    /**
+     * Check if throwing on missing data is enabled.
+     */
+    public function isThrowOnMissingData(): bool
+    {
+        return $this->throwOnMissingData;
     }
 
     /**
@@ -295,12 +313,15 @@ class Denormalizer
                 if ($parameter->allowsNull()) {
                     return null;
                 }
-                $fullPath = $this->buildFullFieldPath($path ?? $jsonKey);
-                if ($path !== null) {
-                    // Provide more context for path resolution failures
-                    $this->errors[$fullPath] = $this->buildPathResolutionError($parameter->getName(), $path, $data, $fullPath);
-                } else {
-                    $this->errors[$fullPath] = "Missing required parameter '{$parameter->getName()}' at path '{$fullPath}'";
+                // Only add error if throwOnMissingData is enabled
+                if ($this->throwOnMissingData) {
+                    $fullPath = $this->buildFullFieldPath($path ?? $jsonKey);
+                    if ($path !== null) {
+                        // Provide more context for path resolution failures
+                        $this->errors[$fullPath] = $this->buildPathResolutionError($parameter->getName(), $path, $data, $fullPath);
+                    } else {
+                        $this->errors[$fullPath] = "Missing required parameter '{$parameter->getName()}' at path '{$fullPath}'";
+                    }
                 }
                 return null;
             }
@@ -361,7 +382,7 @@ class Denormalizer
                 // For properties (not in constructor), missing data is not an error unless required
                 // Check if property is required (not nullable and no default value)
                 $isNullable = $this->isPropertyNullable($property);
-                if (!$isNullable && $path !== null) {
+                if (!$isNullable && $path !== null && $this->throwOnMissingData) {
                     $fullPath = $this->buildFullFieldPath($path);
                     $this->errors[$fullPath] = $this->buildPathResolutionError($property->getName(), $path, $data, $fullPath);
                 }
@@ -881,9 +902,13 @@ class Denormalizer
 
         // Check if discriminator property exists in data
         if (!array_key_exists($discriminator->property, $data)) {
-            $fullPath = $this->buildFullFieldPath($discriminator->property);
-            $this->errors[$fullPath] = "Missing discriminator property '{$discriminator->property}' at path '{$fullPath}'";
-            throw new ValidationException($this->errors);
+            if ($this->throwOnMissingData) {
+                $fullPath = $this->buildFullFieldPath($discriminator->property);
+                $this->errors[$fullPath] = "Missing discriminator property '{$discriminator->property}' at path '{$fullPath}'";
+                throw new ValidationException($this->errors);
+            }
+            // If not throwing, return the base class name (fallback)
+            return $className;
         }
 
         $discriminatorValue = $data[$discriminator->property];

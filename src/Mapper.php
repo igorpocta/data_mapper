@@ -33,6 +33,7 @@ class Mapper
     private TypeResolver $typeResolver;
     private bool $autoValidate;
     private bool $strictMode;
+    private bool $throwOnMissingData;
     private ?Debugger $debugger;
     private ?Profiler $profiler;
 
@@ -67,11 +68,13 @@ class Mapper
         $this->validator = $validator ?? new Validator();
         $this->autoValidate = $options->autoValidate;
         $this->strictMode = $options->strictMode;
+        $this->throwOnMissingData = $options->throwOnMissingData;
         $this->debugger = $debugger;
         $this->profiler = $profiler;
 
         $this->denormalizer = $denormalizer ?? new Denormalizer($this->typeResolver, $this->metadataFactory);
         $this->denormalizer->setStrictMode($this->strictMode);
+        $this->denormalizer->setThrowOnMissingData($this->throwOnMissingData);
         $this->typeResolver->setStrictMode($this->strictMode);
         $this->normalizer = $normalizer ?? new Normalizer($this->typeResolver, $this->metadataFactory);
 
@@ -183,6 +186,23 @@ class Mapper
     public function isStrictMode(): bool
     {
         return $this->strictMode;
+    }
+
+    /**
+     * Enable or disable throwing on missing data.
+     */
+    public function setThrowOnMissingData(bool $throwOnMissingData): void
+    {
+        $this->throwOnMissingData = $throwOnMissingData;
+        $this->denormalizer->setThrowOnMissingData($throwOnMissingData);
+    }
+
+    /**
+     * Check if throwing on missing data is enabled.
+     */
+    public function isThrowOnMissingData(): bool
+    {
+        return $this->throwOnMissingData;
     }
 
     /**
