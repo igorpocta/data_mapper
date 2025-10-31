@@ -28,6 +28,7 @@ class Denormalizer
     /**
      * Context stack of payloads for nested denormalization levels.
      * Bottom (index 0) = root payload; Top (end) = current payload.
+     *
      * @var array<int, array<string, mixed>>
      */
     private array $contextStack = [];
@@ -35,17 +36,18 @@ class Denormalizer
     /** @var array<string, mixed>|null */
     private static ?array $globalRootPayload = null;
 
-    /** Whether this instance set the global root payload */
+    /** Whether this instance set the global root payload. */
     private bool $ownsGlobalRoot = false;
 
     /**
-     * Path prefix for nested denormalization (e.g., "addresses[0]" when denormalizing array element)
-     * Used to provide better error messages with full path
+     * Path prefix for nested denormalization (e.g., "addresses[0]" when denormalizing array element).
+     * Used to provide better error messages with full path.
      */
     private string $pathPrefix = '';
 
     /**
      * Set or clear the global root payload (used across nested denormalizations).
+     *
      * @param array<string, mixed>|null $payload
      */
     public static function setGlobalRoot(?array $payload): void
@@ -54,7 +56,8 @@ class Denormalizer
     }
 
     /**
-     * Set the path prefix for error messages
+     * Set the path prefix for error messages.
+     *
      * @param string $prefix
      */
     public function setPathPrefix(string $prefix): void
@@ -63,7 +66,8 @@ class Denormalizer
     }
 
     /**
-     * Get the path prefix
+     * Get the path prefix.
+     *
      * @return string
      */
     public function getPathPrefix(): string
@@ -72,8 +76,10 @@ class Denormalizer
     }
 
     /**
-     * Build full field path for error messages
+     * Build full field path for error messages.
+     *
      * @param string $fieldName
+     *
      * @return string
      */
     private function buildFullFieldPath(string $fieldName): string
@@ -93,7 +99,7 @@ class Denormalizer
     }
 
     /**
-     * Enable or disable strict mode
+     * Enable or disable strict mode.
      */
     public function setStrictMode(bool $strictMode): void
     {
@@ -101,7 +107,7 @@ class Denormalizer
     }
 
     /**
-     * Check if strict mode is enabled
+     * Check if strict mode is enabled.
      */
     public function isStrictMode(): bool
     {
@@ -109,12 +115,15 @@ class Denormalizer
     }
 
     /**
-     * Converts an associative array to an object
+     * Converts an associative array to an object.
      *
      * @template T of object
+     *
      * @param array<string, mixed> $data
      * @param class-string<T> $className
+     *
      * @return T
+     *
      * @throws ValidationException
      */
     public function denormalize(array $data, string $className): object
@@ -167,13 +176,16 @@ class Denormalizer
     }
 
     /**
-     * Creates an object using constructor
+     * Creates an object using constructor.
      *
      * @template T of object
+     *
      * @param ReflectionClass<T> $reflection
      * @param \ReflectionMethod $constructor
      * @param array<string, mixed> $data
+     *
      * @return T
+     *
      * @throws ValidationException
      */
     private function createWithConstructor(
@@ -203,11 +215,13 @@ class Denormalizer
     }
 
     /**
-     * Creates an object without using constructor
+     * Creates an object without using constructor.
      *
      * @template T of object
+     *
      * @param ReflectionClass<T> $reflection
      * @param array<string, mixed> $data
+     *
      * @return T
      */
     private function createWithoutConstructor(ReflectionClass $reflection, array $data): object
@@ -222,10 +236,11 @@ class Denormalizer
     }
 
     /**
-     * Gets value for a constructor parameter
+     * Gets value for a constructor parameter.
      *
      * @param ReflectionParameter $parameter
      * @param array<string, mixed> $data
+     *
      * @return mixed
      */
     private function getParameterValue(ReflectionParameter $parameter, array $data): mixed
@@ -291,7 +306,7 @@ class Denormalizer
     }
 
     /**
-     * Sets value for a property
+     * Sets value for a property.
      *
      * @param ReflectionProperty $property
      * @param object $instance
@@ -362,7 +377,7 @@ class Denormalizer
     }
 
     /**
-     * Sets properties that are not in constructor
+     * Sets properties that are not in constructor.
      *
      * @param ReflectionClass<object> $reflection
      * @param object $instance
@@ -391,7 +406,7 @@ class Denormalizer
     }
 
     /**
-     * Gets JSON key from parameter attributes
+     * Gets JSON key from parameter attributes.
      *
      * @param ReflectionParameter $parameter
      * @param array<\ReflectionAttribute<MapDateTimeProperty>> $dateTimeAttributes
@@ -418,7 +433,7 @@ class Denormalizer
     }
 
     /**
-     * Gets JSON key from property attributes
+     * Gets JSON key from property attributes.
      *
      * @param ReflectionProperty $property
      * @param array<\ReflectionAttribute<MapDateTimeProperty>> $dateTimeAttributes
@@ -445,7 +460,7 @@ class Denormalizer
     }
 
     /**
-     * Gets type from parameter attributes
+     * Gets type from parameter attributes.
      *
      * @param ReflectionParameter $parameter
      * @param array<\ReflectionAttribute<MapDateTimeProperty>> $dateTimeAttributes
@@ -481,7 +496,7 @@ class Denormalizer
     }
 
     /**
-     * Gets type from property attributes
+     * Gets type from property attributes.
      *
      * @param ReflectionProperty $property
      * @param array<\ReflectionAttribute<MapDateTimeProperty>> $dateTimeAttributes
@@ -517,9 +532,10 @@ class Denormalizer
     }
 
     /**
-     * Checks if property is nullable
+     * Checks if property is nullable.
      *
      * @param ReflectionProperty $property
+     *
      * @return bool
      */
     private function isPropertyNullable(ReflectionProperty $property): bool
@@ -529,7 +545,7 @@ class Denormalizer
     }
 
     /**
-     * Denormalizes a value using the appropriate type handler
+     * Denormalizes a value using the appropriate type handler.
      *
      * @param mixed $value
      * @param string $typeName
@@ -539,6 +555,7 @@ class Denormalizer
      * @param string|null $timezone
      * @param class-string|null $arrayOf
      * @param class-string|null $classType
+     *
      * @return mixed
      */
     private function denormalizeValue(
@@ -570,7 +587,7 @@ class Denormalizer
     }
 
     /**
-     * Gets format from parameter attributes
+     * Gets format from parameter attributes.
      *
      * @param array<\ReflectionAttribute<MapDateTimeProperty>> $dateTimeAttributes
      * @return string|null
@@ -586,7 +603,7 @@ class Denormalizer
     }
 
     /**
-     * Gets timezone from parameter attributes
+     * Gets timezone from parameter attributes.
      *
      * @param array<\ReflectionAttribute<MapDateTimeProperty>> $dateTimeAttributes
      * @return string|null
@@ -602,7 +619,7 @@ class Denormalizer
     }
 
     /**
-     * Gets format from property attributes
+     * Gets format from property attributes.
      *
      * @param array<\ReflectionAttribute<MapDateTimeProperty>> $dateTimeAttributes
      * @return string|null
@@ -618,7 +635,7 @@ class Denormalizer
     }
 
     /**
-     * Gets timezone from property attributes
+     * Gets timezone from property attributes.
      *
      * @param array<\ReflectionAttribute<MapDateTimeProperty>> $dateTimeAttributes
      * @return string|null
@@ -634,7 +651,7 @@ class Denormalizer
     }
 
     /**
-     * Gets arrayOf from parameter attributes
+     * Gets arrayOf from parameter attributes.
      *
      * @param array<\ReflectionAttribute<MapDateTimeProperty>> $dateTimeAttributes
      * @param array<\ReflectionAttribute<MapProperty>> $propertyAttributes
@@ -656,7 +673,7 @@ class Denormalizer
     }
 
     /**
-     * Gets arrayOf from property attributes
+     * Gets arrayOf from property attributes.
      *
      * @param array<\ReflectionAttribute<MapDateTimeProperty>> $dateTimeAttributes
      * @param array<\ReflectionAttribute<MapProperty>> $propertyAttributes
@@ -678,7 +695,7 @@ class Denormalizer
     }
 
     /**
-     * Gets classType from parameter attributes
+     * Gets classType from parameter attributes.
      *
      * @param array<\ReflectionAttribute<MapProperty>> $propertyAttributes
      * @return class-string|null
@@ -694,7 +711,7 @@ class Denormalizer
     }
 
     /**
-     * Gets classType from property attributes
+     * Gets classType from property attributes.
      *
      * @param array<\ReflectionAttribute<MapProperty>> $propertyAttributes
      * @return class-string|null
@@ -874,7 +891,7 @@ class Denormalizer
     }
 
     /**
-     * Validates that no unknown keys are present in the input data
+     * Validates that no unknown keys are present in the input data.
      *
      * @param ReflectionClass<object> $reflection
      * @param \ReflectionMethod|null $constructor
@@ -927,7 +944,7 @@ class Denormalizer
     }
 
     /**
-     * Gets path from parameter attributes
+     * Gets path from parameter attributes.
      *
      * @param array<\ReflectionAttribute<MapDateTimeProperty>> $dateTimeAttributes
      * @param array<\ReflectionAttribute<MapProperty>> $propertyAttributes
@@ -950,7 +967,7 @@ class Denormalizer
     }
 
     /**
-     * Gets path from property attributes
+     * Gets path from property attributes.
      *
      * @param array<\ReflectionAttribute<MapDateTimeProperty>> $dateTimeAttributes
      * @param array<\ReflectionAttribute<MapProperty>> $propertyAttributes
@@ -973,7 +990,7 @@ class Denormalizer
     }
 
     /**
-     * Builds a detailed error message for path resolution failures
+     * Builds a detailed error message for path resolution failures.
      *
      * @param string $propertyName Property or parameter name
      * @param string $path The property path that failed
