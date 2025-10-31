@@ -794,4 +794,315 @@ class Mapper
             }, -999); // Low priority to run after other listeners
         }
     }
+
+    /**
+     * Maps CSV string to a collection of objects.
+     *
+     * @template T of object
+     *
+     * @param string $csv CSV string with header row
+     * @param class-string<T> $className
+     * @param string $delimiter CSV delimiter (default: ',')
+     * @param string $enclosure CSV enclosure character (default: '"')
+     * @param string $escape CSV escape character (default: '\\')
+     * @param bool $hasHeader Whether CSV has header row (default: true)
+     *
+     * @return array<int, T> Array of objects
+     *
+     * @throws \Pocta\DataMapper\Exceptions\ValidationException
+     */
+    public function fromCsv(
+        string $csv,
+        string $className,
+        string $delimiter = ',',
+        string $enclosure = '"',
+        string $escape = '\\',
+        bool $hasHeader = true
+    ): array {
+        $this->profiler?->start('fromCsv');
+        $this->debugger?->logOperation('fromCsv', ['length' => strlen($csv)], $className);
+
+        try {
+            // Handle empty CSV
+            if (trim($csv) === '') {
+                return [];
+            }
+
+            // Parse CSV using stream to properly handle quoted newlines
+            $stream = fopen('php://memory', 'r+');
+            if ($stream === false) {
+                throw new \RuntimeException('Failed to create memory stream');
+            }
+            fwrite($stream, $csv);
+            rewind($stream);
+
+            $data = [];
+            while (($row = fgetcsv($stream, 0, $delimiter, $enclosure, $escape)) !== false) {
+                // Skip empty rows
+                $hasContent = false;
+                foreach ($row as $cell) {
+                    if ($cell !== null && $cell !== '') {
+                        $hasContent = true;
+                        break;
+                    }
+                }
+                if ($hasContent) {
+                    $data[] = $row;
+                }
+            }
+            fclose($stream);
+
+            if (empty($data)) {
+                return [];
+            }
+
+            $headers = null;
+            if ($hasHeader) {
+                $headers = array_shift($data);
+            }
+
+            // Convert rows to associative arrays
+            $result = [];
+            foreach ($data as $row) {
+                $rowData = $this->csvRowToArray($row, $headers, $className);
+                $result[] = $this->fromArray($rowData, $className);
+            }
+
+            return $result;
+        } finally {
+            $this->profiler?->stop('fromCsv');
+        }
+    }
+
+    /**
+     * Maps CSV file to a collection of objects.
+     *
+     * @template T of object
+     *
+     * @param string $filePath Path to CSV file
+     * @param class-string<T> $className
+     * @param string $delimiter CSV delimiter (default: ',')
+     * @param string $enclosure CSV enclosure character (default: '"')
+     * @param string $escape CSV escape character (default: '\\')
+     * @param bool $hasHeader Whether CSV has header row (default: true)
+     *
+     * @return array<int, T> Array of objects
+     *
+     * @throws \Pocta\DataMapper\Exceptions\ValidationException
+     * @throws \InvalidArgumentException
+     */
+    public function fromCsvFile(
+        string $filePath,
+        string $className,
+        string $delimiter = ',',
+        string $enclosure = '"',
+        string $escape = '\\',
+        bool $hasHeader = true
+    ): array {
+        $this->profiler?->start('fromCsvFile');
+        $this->debugger?->logOperation('fromCsvFile', $filePath, $className);
+
+        try {
+            if (!file_exists($filePath)) {
+                throw new \InvalidArgumentException("CSV file not found: {$filePath}");
+            }
+
+            if (!is_readable($filePath)) {
+                throw new \InvalidArgumentException("CSV file is not readable: {$filePath}");
+            }
+
+            $handle = fopen($filePath, 'r');
+            if ($handle === false) {
+                throw new \InvalidArgumentException("Failed to open CSV file: {$filePath}");
+            }
+
+            $headers = null;
+            if ($hasHeader) {
+                $headers = fgetcsv($handle, 0, $delimiter, $enclosure, $escape);
+                if ($headers === false) {
+                    fclose($handle);
+                    return [];
+                }
+            }
+
+            $result = [];
+            while (($row = fgetcsv($handle, 0, $delimiter, $enclosure, $escape)) !== false) {
+                // Skip empty rows
+                if (empty(array_filter($row, function ($cell) {
+                    return $cell !== null && $cell !== '';
+                }))) {
+                    continue;
+                }
+
+                $rowData = $this->csvRowToArray($row, $headers, $className);
+                $result[] = $this->fromArray($rowData, $className);
+            }
+
+            fclose($handle);
+            return $result;
+        } finally {
+            $this->profiler?->stop('fromCsvFile');
+        }
+    }
+
+    /**
+     * Converts a collection of objects to CSV string.
+     *
+     * @param array<int, object> $collection Array of objects
+     * @param string $delimiter CSV delimiter (default: ',')
+     * @param string $enclosure CSV enclosure character (default: '"')
+     * @param string $escape CSV escape character (default: '\\')
+     * @param bool $includeHeader Whether to include header row (default: true)
+     *
+     * @return string CSV string
+     */
+    public function toCsv(
+        array $collection,
+        string $delimiter = ',',
+        string $enclosure = '"',
+        string $escape = '\\',
+        bool $includeHeader = true
+    ): string {
+        $this->profiler?->start('toCsv');
+        $this->debugger?->logOperation('toCsv', ['count' => count($collection)]);
+
+        try {
+            if (empty($collection)) {
+                return '';
+            }
+
+            $output = fopen('php://temp', 'r+');
+            if ($output === false) {
+                throw new \RuntimeException('Failed to create temporary stream for CSV output');
+            }
+
+            // Get first object to determine headers
+            $first = $this->toArray($collection[0]);
+            $headers = array_keys($first);
+
+            // Write header
+            if ($includeHeader) {
+                fputcsv($output, $headers, $delimiter, $enclosure, $escape);
+            }
+
+            // Write data
+            foreach ($collection as $object) {
+                $data = $this->toArray($object);
+                $row = [];
+                foreach ($headers as $header) {
+                    $row[] = $data[$header] ?? '';
+                }
+                /** @phpstan-ignore-next-line argument.type - toArray returns mixed values which are valid for fputcsv */
+                fputcsv($output, $row, $delimiter, $enclosure, $escape);
+            }
+
+            rewind($output);
+            $csv = stream_get_contents($output);
+            fclose($output);
+
+            return $csv !== false ? $csv : '';
+        } finally {
+            $this->profiler?->stop('toCsv');
+        }
+    }
+
+    /**
+     * Converts CSV row to associative array based on class metadata.
+     *
+     * @param array<int, string|null> $row CSV row data
+     * @param array<int, string|null>|null $headers CSV headers
+     * @param class-string $className
+     *
+     * @return array<string, mixed>
+     */
+    private function csvRowToArray(array $row, ?array $headers, string $className): array
+    {
+        $metadata = $this->metadataFactory->getMetadata($className);
+        $result = [];
+
+        // Build mapping from CSV columns to property names
+        $columnMapping = $this->buildCsvColumnMapping($metadata, $headers);
+
+        // Map by header names if available
+        if ($headers !== null) {
+            foreach ($headers as $index => $header) {
+                $propertyName = $columnMapping['byName'][$header] ?? $header;
+                $result[$propertyName] = $row[$index] ?? null;
+            }
+        }
+
+        // Map by explicit index mappings from MapCsvColumn attributes
+        foreach ($columnMapping['byIndex'] as $index => $propertyName) {
+            if (isset($row[$index])) {
+                $result[$propertyName] = $row[$index];
+            }
+        }
+
+        // Map by position if no header and no explicit mappings
+        if ($headers === null && empty($columnMapping['byIndex'])) {
+            // Use constructor parameter order for mapping
+            $propertyNames = [];
+            if ($metadata->constructor !== null) {
+                $propertyNames = array_values(array_map(fn($p) => $p->name, $metadata->constructor->parameters));
+            }
+
+            foreach ($row as $index => $value) {
+                if (isset($propertyNames[$index])) {
+                    $result[$propertyNames[$index]] = $value;
+                }
+            }
+        }
+
+        return $result;
+    }
+
+    /**
+     * Builds CSV column mapping from metadata.
+     *
+     * @param \Pocta\DataMapper\Cache\ClassMetadata $metadata
+     * @param array<int, string|null>|null $headers
+     *
+     * @return array{byName: array<string, string>, byIndex: array<int, string>}
+     */
+    private function buildCsvColumnMapping($metadata, ?array $headers): array
+    {
+        $byName = [];
+        $byIndex = [];
+
+        // Check constructor parameters
+        if ($metadata->constructor !== null) {
+            foreach ($metadata->constructor->parameters as $param) {
+                // Search through cached attributes array for MapCsvColumn
+                foreach ($param->attributes as $attr) {
+                    if ($attr instanceof \Pocta\DataMapper\Attributes\MapCsvColumn) {
+                        if ($attr->name !== null) {
+                            $byName[$attr->name] = $param->name;
+                        }
+                        if ($attr->index !== null) {
+                            $byIndex[$attr->index] = $param->name;
+                        }
+                        break; // Only use first MapCsvColumn attribute
+                    }
+                }
+            }
+        }
+
+        // Check properties
+        foreach ($metadata->properties as $property) {
+            // Search through cached attributes array for MapCsvColumn
+            foreach ($property->attributes as $attr) {
+                if ($attr instanceof \Pocta\DataMapper\Attributes\MapCsvColumn) {
+                    if ($attr->name !== null) {
+                        $byName[$attr->name] = $property->name;
+                    }
+                    if ($attr->index !== null) {
+                        $byIndex[$attr->index] = $property->name;
+                    }
+                    break; // Only use first MapCsvColumn attribute
+                }
+            }
+        }
+
+        return ['byName' => $byName, 'byIndex' => $byIndex];
+    }
 }

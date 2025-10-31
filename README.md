@@ -3,9 +3,9 @@
 [![CI](https://github.com/igorpocta/data_mapper/actions/workflows/ci.yml/badge.svg)](https://github.com/igorpocta/data-mapper/actions/workflows/ci.yml)
 [![PHP Version](https://img.shields.io/badge/PHP-8.1%2B-blue)](https://php.net)
 [![PHPStan Level](https://img.shields.io/badge/PHPStan-level%209-brightgreen)](https://phpstan.org)
-[![Tests](https://img.shields.io/badge/tests-454%20passing-success)](.)
+[![Tests](https://img.shields.io/badge/tests-470%20passing-success)](.)
 
-High-performance and type-safe PHP library for bidirectional data mapping between JSON/arrays and objects. Supports constructors, nullable types, enums, DateTime, nested objects, discriminator mapping for polymorphism, filters, and much more.
+High-performance and type-safe PHP library for bidirectional data mapping between JSON/arrays/CSV and objects. Supports constructors, nullable types, enums, DateTime, nested objects, discriminator mapping for polymorphism, CSV import/export, filters, and much more.
 
 ## Table of Contents
 
@@ -38,12 +38,13 @@ composer require igorpocta/data-mapper
 ## Key Features
 
 ### Mapping
-- **Bidirectional mapping**: JSON/array ↔ objects with automatic conversion
-- **Batch processing**: Efficient mapping of collections with `fromArrayCollection()`, `toJsonCollection()`, etc.
+- **Bidirectional mapping**: JSON/array/CSV ↔ objects with automatic conversion
+- **CSV Support**: Import/export CSV files with automatic type conversion, custom column mapping, and special character handling
+- **Batch processing**: Efficient mapping of collections with `fromArrayCollection()`, `toJsonCollection()`, `fromCsv()`, etc.
 - **Property path resolver**: Map nested values using dot notation (e.g., `user.address.street`) and array indexes (e.g., `addresses[0].street`)
 - **Type safety**: Full support for PHP 8.1+ types including union and intersection types
 - **Nullable types**: Automatic handling of `?int`, `?string`, etc.
-- **Custom names**: Map to different keys in JSON using attributes
+- **Custom names**: Map to different keys in JSON/CSV using attributes
 
 ### Data Types
 - **Basic types**: int, float, string, bool, array
@@ -66,7 +67,7 @@ composer require igorpocta/data-mapper
 
 ### Code Quality
 - **PHPStan Level 9**: Strictest static analysis
-- **100% tested**: 454 unit tests, 1243 assertions
+- **100% tested**: 470 unit tests, 1278 assertions
 - **Extensibility**: Easy addition of custom data types, filters, and validators
 - **Debug & Profiling**: Integrated tools for performance analysis and optimization
 
@@ -296,7 +297,122 @@ try {
 }
 ```
 
-### 4. Partial Updates / Merge
+### 4. CSV Import/Export
+
+The mapper provides full CSV support with automatic type conversion, custom column mapping, and proper handling of special characters like quotes, commas, and newlines.
+
+```php
+use Pocta\DataMapper\Mapper;
+use Pocta\DataMapper\Attributes\MapCsvColumn;
+
+class Product
+{
+    public function __construct(
+        public int $id,
+        public string $name,
+        public float $price,
+        public bool $active
+    ) {}
+}
+
+$mapper = new Mapper();
+
+// CSV → Objects
+$csv = "id,name,price,active\n1,Product A,10.50,true\n2,Product B,20.00,false";
+$products = $mapper->fromCsv($csv, Product::class);
+// Returns: Product[]
+
+// Objects → CSV
+$products = [
+    new Product(1, 'Product A', 10.50, true),
+    new Product(2, 'Product B', 20.00, false),
+];
+$csv = $mapper->toCsv($products);
+// Returns: "id,name,price,active\n1,\"Product A\",10.5,true\n..."
+
+// Read from CSV file
+$products = $mapper->fromCsvFile('products.csv', Product::class);
+
+// CSV without header row
+$csv = "1,Product A,10.50\n2,Product B,20.00";
+$products = $mapper->fromCsv($csv, Product::class, hasHeader: false);
+// Maps by position: column 0 → id, column 1 → name, column 2 → price
+
+// Custom delimiter (semicolon, tab, etc.)
+$csv = "id;name;price\n1;Product A;10.50";
+$products = $mapper->fromCsv($csv, Product::class, delimiter: ';');
+```
+
+**Custom column mapping with `MapCsvColumn` attribute:**
+
+```php
+class Product
+{
+    public function __construct(
+        #[MapCsvColumn('product_id')]       // Map from column named "product_id"
+        public int $id,
+
+        #[MapCsvColumn('product_name')]     // Map from column named "product_name"
+        public string $name,
+
+        #[MapCsvColumn(index: 2)]           // Map from column at index 2 (0-based)
+        public float $price
+    ) {}
+}
+
+$csv = "product_id,product_name,price\n1,Widget,19.99\n2,Gadget,29.99";
+$products = $mapper->fromCsv($csv, Product::class);
+// Correctly maps despite different column names
+```
+
+**Special characters handling:**
+
+The CSV parser properly handles quoted values, embedded commas, quotes, and newlines:
+
+```php
+$products = [
+    new Product(1, 'Text with "quotes"', 9.99, true),
+    new Product(2, 'Text with, comma', 14.99, true),
+    new Product(3, "Text with\nnewline", 19.99, false),
+];
+
+$csv = $mapper->toCsv($products);
+// Automatically escapes special characters:
+// id,name,price,active
+// 1,"Text with ""quotes""",9.99,true
+// 2,"Text with, comma",14.99,true
+// 3,"Text with
+// newline",19.99,false
+
+// Round-trip works perfectly
+$parsedProducts = $mapper->fromCsv($csv, Product::class);
+// Special characters are preserved correctly
+```
+
+**CSV options:**
+
+```php
+// All available options
+$products = $mapper->fromCsv(
+    csv: $csvString,
+    className: Product::class,
+    delimiter: ',',      // Field delimiter (default: ',')
+    enclosure: '"',      // Field enclosure (default: '"')
+    escape: '\\',        // Escape character (default: '\\')
+    hasHeader: true      // Whether CSV has header row (default: true)
+);
+
+// Export with custom options
+$csv = $mapper->toCsv(
+    collection: $products,
+    delimiter: ';',
+    enclosure: '"',
+    escape: '\\',
+    includeHeader: true  // Include header row (default: true)
+);
+```
+
+### 5. Partial Updates / Merge
 
 Update only specific properties of an existing object without recreating it:
 
