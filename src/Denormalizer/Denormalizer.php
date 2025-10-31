@@ -33,27 +33,14 @@ class Denormalizer
      */
     private array $contextStack = [];
 
-    /** @var array<string, mixed>|null */
-    private static ?array $globalRootPayload = null;
-
-    /** Whether this instance set the global root payload. */
-    private bool $ownsGlobalRoot = false;
+    /** Whether this instance owns the root payload in TypeResolver. */
+    private bool $ownsRootPayload = false;
 
     /**
      * Path prefix for nested denormalization (e.g., "addresses[0]" when denormalizing array element).
      * Used to provide better error messages with full path.
      */
     private string $pathPrefix = '';
-
-    /**
-     * Set or clear the global root payload (used across nested denormalizations).
-     *
-     * @param array<string, mixed>|null $payload
-     */
-    public static function setGlobalRoot(?array $payload): void
-    {
-        self::$globalRootPayload = $payload;
-    }
 
     /**
      * Set the path prefix for error messages.
@@ -133,10 +120,10 @@ class Denormalizer
             $this->errors = [];
         }
 
-        // Initialize global root payload if not set
-        if (self::$globalRootPayload === null) {
-            self::$globalRootPayload = $data;
-            $this->ownsGlobalRoot = true;
+        // Initialize root payload in TypeResolver if not set
+        if ($this->typeResolver->getRootPayload() === null) {
+            $this->typeResolver->setRootPayload($data);
+            $this->ownsRootPayload = true;
         }
 
         // Push current payload
@@ -168,9 +155,9 @@ class Denormalizer
 
         // Pop current payload and return result
         array_pop($this->contextStack);
-        if (empty($this->contextStack) && $this->ownsGlobalRoot) {
-            self::$globalRootPayload = null;
-            $this->ownsGlobalRoot = false;
+        if (empty($this->contextStack) && $this->ownsRootPayload) {
+            $this->typeResolver->setRootPayload(null);
+            $this->ownsRootPayload = false;
         }
         return $result;
     }
@@ -826,13 +813,17 @@ class Denormalizer
 
     /**
      * Returns root (bottom) payload or current if stack is empty.
+     *
      * @return array<string, mixed>
      */
     private function getRootPayload(): array
     {
-        if (self::$globalRootPayload !== null) {
-            return self::$globalRootPayload;
+        // Try to get root payload from TypeResolver first (shared across instances)
+        $rootPayload = $this->typeResolver->getRootPayload();
+        if ($rootPayload !== null) {
+            return $rootPayload;
         }
+        // Fallback to context stack
         return $this->contextStack[0] ?? ($this->contextStack[count($this->contextStack) - 1] ?? []);
     }
 

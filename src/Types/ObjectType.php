@@ -8,6 +8,7 @@ use InvalidArgumentException;
 use Pocta\DataMapper\Denormalizer\Denormalizer;
 use Pocta\DataMapper\Normalizer\Normalizer;
 use Pocta\DataMapper\Exceptions\ValidationException;
+use Pocta\DataMapper\Types\TypeResolver;
 
 /**
  * Type handler for nested objects
@@ -22,10 +23,12 @@ class ObjectType implements TypeInterface
     /**
      * @param class-string<T> $className
      * @param bool $strictMode
+     * @param TypeResolver|null $typeResolver
      */
     public function __construct(
         private readonly string $className,
-        private readonly bool $strictMode = false
+        private readonly bool $strictMode = false,
+        private readonly ?TypeResolver $typeResolver = null
     ) {
         if (!class_exists($this->className)) {
             throw new InvalidArgumentException(
@@ -33,9 +36,9 @@ class ObjectType implements TypeInterface
             );
         }
 
-        $this->denormalizer = new Denormalizer();
+        $this->denormalizer = new Denormalizer($this->typeResolver);
         $this->denormalizer->setStrictMode($this->strictMode);
-        $this->normalizer = new Normalizer();
+        $this->normalizer = new Normalizer($this->typeResolver);
     }
 
     public function getName(): string

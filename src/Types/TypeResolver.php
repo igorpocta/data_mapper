@@ -16,6 +16,9 @@ class TypeResolver
 
     private bool $strictMode = false;
 
+    /** @var array<string, mixed>|null */
+    private ?array $rootPayload = null;
+
     public function __construct()
     {
         $this->registerDefaultTypes();
@@ -39,6 +42,26 @@ class TypeResolver
     public function isStrictMode(): bool
     {
         return $this->strictMode;
+    }
+
+    /**
+     * Set the root payload for nested denormalizations.
+     *
+     * @param array<string, mixed>|null $payload
+     */
+    public function setRootPayload(?array $payload): void
+    {
+        $this->rootPayload = $payload;
+    }
+
+    /**
+     * Get the root payload.
+     *
+     * @return array<string, mixed>|null
+     */
+    public function getRootPayload(): ?array
+    {
+        return $this->rootPayload;
     }
 
     /**
@@ -245,8 +268,8 @@ class TypeResolver
             return $this->types[$cacheKey];
         }
 
-        // Create new ArrayType instance with strict mode
-        $type = new ArrayType($elementClassName, null, $this->strictMode);
+        // Create new ArrayType instance with strict mode and shared TypeResolver
+        $type = new ArrayType($elementClassName, null, $this->strictMode, $this);
 
         // Cache it
         $this->types[$cacheKey] = $type;
@@ -294,8 +317,8 @@ class TypeResolver
             return $this->types[$cacheKey];
         }
 
-        // Create new ObjectType instance with strict mode
-        $type = new ObjectType($className, $this->strictMode);
+        // Create new ObjectType instance with strict mode and shared TypeResolver
+        $type = new ObjectType($className, $this->strictMode, $this);
 
         // Cache it
         $this->types[$cacheKey] = $type;

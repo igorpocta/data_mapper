@@ -252,7 +252,8 @@ class Mapper
         $this->eventDispatcher->dispatch($preEvent);
         $data = $preEvent->data;
 
-        \Pocta\DataMapper\Denormalizer\Denormalizer::setGlobalRoot($data);
+        // Set root payload in TypeResolver for nested denormalizations
+        $this->typeResolver->setRootPayload($data);
         try {
             $this->profiler?->start('denormalize');
 
@@ -299,7 +300,8 @@ class Mapper
             // Return null if suppressed (would need nullable return type in real impl)
             throw $e; // For now still throw
         } finally {
-            \Pocta\DataMapper\Denormalizer\Denormalizer::setGlobalRoot(null);
+            // Clear root payload after denormalization
+            $this->typeResolver->setRootPayload(null);
             $this->profiler?->stop('fromArray');
         }
     }

@@ -8,6 +8,7 @@ use InvalidArgumentException;
 use Pocta\DataMapper\Denormalizer\Denormalizer;
 use Pocta\DataMapper\Exceptions\ValidationException;
 use Pocta\DataMapper\Normalizer\Normalizer;
+use Pocta\DataMapper\Types\TypeResolver;
 
 /**
  * Type handler for arrays of objects or scalars
@@ -22,11 +23,13 @@ class ArrayType implements TypeInterface
      * @param class-string|null $elementClassName Class name for array elements (for object arrays).
      * @param TypeInterface|null $elementType Type handler for array elements (for scalar arrays).
      * @param bool $strictMode Enable strict mode for nested denormalizations.
+     * @param TypeResolver|null $typeResolver Type resolver for nested denormalizations.
      */
     public function __construct(
         private readonly ?string $elementClassName = null,
         ?TypeInterface $elementType = null,
-        private readonly bool $strictMode = false
+        private readonly bool $strictMode = false,
+        private readonly ?TypeResolver $typeResolver = null
     ) {
         if ($this->elementClassName !== null) {
             if (!class_exists($this->elementClassName)) {
@@ -34,9 +37,9 @@ class ArrayType implements TypeInterface
                     "Class '{$this->elementClassName}' does not exist"
                 );
             }
-            $this->denormalizer = new Denormalizer();
+            $this->denormalizer = new Denormalizer($this->typeResolver);
             $this->denormalizer->setStrictMode($this->strictMode);
-            $this->normalizer = new Normalizer();
+            $this->normalizer = new Normalizer($this->typeResolver);
         }
 
         $this->elementType = $elementType;
