@@ -3,7 +3,7 @@
 [![CI](https://github.com/igorpocta/data_mapper/actions/workflows/ci.yml/badge.svg)](https://github.com/igorpocta/data-mapper/actions/workflows/ci.yml)
 [![PHP Version](https://img.shields.io/badge/PHP-8.1%2B-blue)](https://php.net)
 [![PHPStan Level](https://img.shields.io/badge/PHPStan-level%209-brightgreen)](https://phpstan.org)
-[![Tests](https://img.shields.io/badge/tests-376%20passing-success)](.)
+[![Tests](https://img.shields.io/badge/tests-454%20passing-success)](.)
 
 High-performance and type-safe PHP library for bidirectional data mapping between JSON/arrays and objects. Supports constructors, nullable types, enums, DateTime, nested objects, discriminator mapping for polymorphism, filters, and much more.
 
@@ -56,7 +56,7 @@ composer require igorpocta/data-mapper
 - **Constructor properties**: Full support for promoted properties
 - **Partial updates**: Merge partial data into existing objects with `merge()` method
 - **Discriminator mapping**: Polymorphic object mapping based on discriminator fields (vehicles, events, payment methods)
-- **Filters**: 60+ built-in filters for data transformation (trim, lowercase, slugify, etc.)
+- **Filters**: 70+ built-in filters for data transformation including security (masking, hashing), formatting (money, numbers), case conversion (camelCase, snake_case, kebab-case), and more
 - **Hydration**: Custom functions for data transformation using `MapPropertyWithFunction`
 - **Event System**: Hooks for pre/post processing (logging, transformations, error handling)
 - **Validation**: 30+ Assert attributes (NotNull, Range, Email, Choice, Callback, Type, IsTrue, Ip, etc.)
@@ -66,7 +66,7 @@ composer require igorpocta/data-mapper
 
 ### Code Quality
 - **PHPStan Level 9**: Strictest static analysis
-- **100% tested**: 323 unit tests, 1030 assertions
+- **100% tested**: 454 unit tests, 1243 assertions
 - **Extensibility**: Easy addition of custom data types, filters, and validators
 - **Debug & Profiling**: Integrated tools for performance analysis and optimization
 
@@ -1123,13 +1123,16 @@ class Article
 
 Available filters (overview):
 
-- **Strings**: `StringTrimFilter`, `StringToLowerFilter`, `StringToUpperFilter`, `CollapseWhitespaceFilter`, `TitleCaseFilter`, `CapitalizeFirstFilter`, `EnsurePrefixFilter`, `EnsureSuffixFilter`, `SubstringFilter`, `TrimLengthFilter`, `PadLeftFilter`, `PadRightFilter`, `ReplaceDiacriticsFilter`, `SlugifyFilter`, `NormalizeUnicodeFilter`, `ReplaceFilter`.
-- **Numbers**: `ClampFilter`, `RoundNumberFilter`, `CeilNumberFilter`, `FloorNumberFilter`, `AbsNumberFilter`, `ScaleNumberFilter`, `ToDecimalStringFilter`.
+- **Strings**: `StringTrimFilter`, `StringToLowerFilter`, `StringToUpperFilter`, `CollapseWhitespaceFilter`, `TitleCaseFilter`, `CapitalizeFirstFilter`, `EnsurePrefixFilter`, `EnsureSuffixFilter`, `SubstringFilter`, `TrimLengthFilter`, `PadLeftFilter`, `PadRightFilter`, `ReplaceDiacriticsFilter`, `SlugifyFilter`, `NormalizeUnicodeFilter`, `ReplaceFilter`, `TransliterateFilter`.
+- **Case Conversion**: `CamelCaseFilter`, `SnakeCaseFilter`, `KebabCaseFilter`.
+- **Numbers**: `ClampFilter`, `RoundNumberFilter`, `CeilNumberFilter`, `FloorNumberFilter`, `AbsNumberFilter`, `ScaleNumberFilter`, `ToDecimalStringFilter`, `MoneyFilter`, `NumberFormatFilter`, `PriceRoundFilter`.
 - **Boolean**: `ToBoolStrictFilter`, `NullIfTrueFilter`, `NullIfFalseFilter`.
 - **Arrays/Collections**: `EachFilter`, `UniqueArrayFilter`, `SortArrayFilter`, `SortArrayByKeyFilter`, `ReverseArrayFilter`, `FilterKeysFilter`, `SliceArrayFilter`, `LimitArrayFilter`, `FlattenArrayFilter`, `ArrayCastFilter`.
 - **Date/Time**: `ToTimezoneFilter`, `StartOfDayFilter`, `EndOfDayFilter`, `TruncateDateTimeFilter`, `AddIntervalFilter`, `SubIntervalFilter`, `ToUnixTimestampFilter`, `EnsureImmutableFilter`.
-- **Formatting**: `JsonDecodeFilter`, `JsonEncodeFilter`, `UrlEncodeFilter`, `UrlDecodeFilter`, `HtmlEntitiesEncodeFilter`, `HtmlEntitiesDecodeFilter`, `SanitizeHtmlFilter`.
+- **Formatting**: `JsonDecodeFilter`, `JsonEncodeFilter`, `UrlEncodeFilter`, `UrlDecodeFilter`, `HtmlEntitiesEncodeFilter`, `HtmlEntitiesDecodeFilter`, `SanitizeHtmlFilter`, `Base64EncodeFilter`, `Base64DecodeFilter`.
+- **Security**: `HashFilter`, `MaskFilter`.
 - **Data Normalization**: `NormalizeEmailFilter`, `NormalizePhoneFilter`, `DefaultValueFilter`, `CoalesceFilter`.
+- **Generation**: `GenerateUuidFilter`.
 
 Example of combining multiple filters:
 
@@ -1270,6 +1273,237 @@ class Product
     public string $text;
     // Input: "OLD value OLD"
     // Output: "new value new"
+}
+```
+
+##### Advanced Data Transformation Filters
+
+**MoneyFilter** - Formats numeric values as money strings with configurable separators:
+
+```php
+use Pocta\DataMapper\Attributes\Filters\MoneyFilter;
+
+class Product
+{
+    #[MoneyFilter(decimals: 2, decimalSeparator: ',', thousandsSeparator: ' ')]
+    public float $price;
+    // Input: 1234.56
+    // Output: "1 234,56"
+
+    #[MoneyFilter(decimals: 0, thousandsSeparator: ',')]
+    public int $total;
+    // Input: 1234567
+    // Output: "1,234,567"
+}
+```
+
+**NumberFormatFilter** - Flexible number formatting with prefix/suffix support:
+
+```php
+use Pocta\DataMapper\Attributes\Filters\NumberFormatFilter;
+
+class Metrics
+{
+    #[NumberFormatFilter(decimals: 2, prefix: '$', suffix: ' USD')]
+    public float $amount;
+    // Input: 1234.56
+    // Output: "$1234.56 USD"
+
+    #[NumberFormatFilter(decimals: 0, thousandsSep: ',')]
+    public int $visitors;
+    // Input: 1234567
+    // Output: "1,234,567"
+}
+```
+
+**MaskFilter** - Masks sensitive data for GDPR compliance and security:
+
+```php
+use Pocta\DataMapper\Attributes\Filters\MaskFilter;
+
+class Payment
+{
+    #[MaskFilter(mask: '****', visibleStart: 4, visibleEnd: 4)]
+    public string $cardNumber;
+    // Input: "1234567890123456"
+    // Output: "1234****3456"
+
+    #[MaskFilter(mask: '***', visibleStart: 3, visibleEnd: 0)]
+    public string $email;
+    // Input: "test@example.com"
+    // Output: "tes***"
+
+    #[MaskFilter(visibleStart: 2, visibleEnd: 2, maskChar: '*')]
+    public string $iban;
+    // Input: "CZ6508000000192000145399"
+    // Output: "CZ******************99"
+}
+```
+
+**HashFilter** - Hashes values using various algorithms (bcrypt, argon2, md5, sha256, etc.):
+
+```php
+use Pocta\DataMapper\Attributes\Filters\HashFilter;
+
+class User
+{
+    #[HashFilter(algo: 'bcrypt')]
+    public string $password;
+    // Input: "secret123"
+    // Output: "$2y$10$..."
+
+    #[HashFilter(algo: 'sha256')]
+    public string $apiToken;
+    // Input: "token123"
+    // Output: "3a6eb0794f..."
+
+    #[HashFilter(algo: 'md5')]
+    public string $checksum;
+    // Input: "data"
+    // Output: "8d777f385d..."
+}
+```
+
+**TransliterateFilter** - Transliterates text from one script to another (e.g., Cyrillic to Latin):
+
+```php
+use Pocta\DataMapper\Attributes\Filters\TransliterateFilter;
+
+class Article
+{
+    #[TransliterateFilter]
+    public string $slug;
+    // Input: "Привет мир"
+    // Output: "Privet mir"
+
+    #[TransliterateFilter(removeUnknown: true)]
+    public string $cleanSlug;
+    // Removes characters that cannot be transliterated
+}
+```
+
+**CamelCaseFilter / SnakeCaseFilter / KebabCaseFilter** - Case conversion filters:
+
+```php
+use Pocta\DataMapper\Attributes\Filters\{CamelCaseFilter,SnakeCaseFilter,KebabCaseFilter};
+
+class ApiMapping
+{
+    #[CamelCaseFilter]
+    public string $propertyName;
+    // Input: "hello_world"
+    // Output: "helloWorld"
+
+    #[CamelCaseFilter(upperFirst: true)]
+    public string $className;
+    // Input: "hello_world"
+    // Output: "HelloWorld" (PascalCase)
+
+    #[SnakeCaseFilter]
+    public string $databaseColumn;
+    // Input: "helloWorld"
+    // Output: "hello_world"
+
+    #[SnakeCaseFilter(screaming: true)]
+    public string $constant;
+    // Input: "helloWorld"
+    // Output: "HELLO_WORLD"
+
+    #[KebabCaseFilter]
+    public string $urlSlug;
+    // Input: "helloWorld"
+    // Output: "hello-world"
+
+    #[KebabCaseFilter(screaming: true)]
+    public string $httpHeader;
+    // Input: "contentType"
+    // Output: "CONTENT-TYPE"
+}
+```
+
+**Base64EncodeFilter / Base64DecodeFilter** - Base64 encoding/decoding:
+
+```php
+use Pocta\DataMapper\Attributes\Filters\{Base64EncodeFilter,Base64DecodeFilter};
+
+class ApiData
+{
+    #[Base64EncodeFilter]
+    public string $encodedData;
+    // Input: "hello"
+    // Output: "aGVsbG8="
+
+    #[Base64EncodeFilter(urlSafe: true)]
+    public string $urlSafeToken;
+    // Uses URL-safe Base64 encoding (replaces +/ with -_)
+
+    #[Base64EncodeFilter(removePadding: true)]
+    public string $compactToken;
+    // Input: "hello"
+    // Output: "aGVsbG8" (without padding)
+
+    #[Base64DecodeFilter]
+    public string $decodedData;
+    // Note: Best used for specific decoding workflows
+}
+```
+
+**PriceRoundFilter** - Rounds prices to psychological pricing points:
+
+```php
+use Pocta\DataMapper\Attributes\Filters\PriceRoundFilter;
+
+class Product
+{
+    #[PriceRoundFilter(to: 9)]
+    public float $price;
+    // Input: 123.45
+    // Output: 129.00
+
+    #[PriceRoundFilter(to: 99)]
+    public float $retailPrice;
+    // Input: 123.45
+    // Output: 199.00
+
+    #[PriceRoundFilter(to: 95)]
+    public float $salePrice;
+    // Input: 123.45
+    // Output: 195.00
+
+    #[PriceRoundFilter(to: 0)]
+    public float $wholesalePrice;
+    // Input: 123.45
+    // Output: 130.00 (rounds to nearest 10)
+
+    #[PriceRoundFilter(to: 99, subtract: true)]
+    public float $clearancePrice;
+    // Input: 123.45
+    // Output: 99.00 (rounds down)
+}
+```
+
+**GenerateUuidFilter** - Generates RFC 4122 compliant UUIDs for null/empty values:
+
+```php
+use Pocta\DataMapper\Attributes\Filters\GenerateUuidFilter;
+
+class Entity
+{
+    #[GenerateUuidFilter]
+    public ?string $id;
+    // Input: null
+    // Output: "550e8400-e29b-41d4-a716-446655440000"
+
+    #[GenerateUuidFilter(version: 4)]
+    public string $uuid;
+    // Input: ""
+    // Output: "6ba7b810-9dad-11d1-80b4-00c04fd430c8"
+
+    #[GenerateUuidFilter(onlyIfNull: true)]
+    public ?string $identifier;
+    // Only generates if null, leaves empty strings unchanged
+    // Input: null → "550e8400-..."
+    // Input: "" → ""
 }
 ```
 
