@@ -24,9 +24,10 @@ class Normalizer
     }
 
     /**
-     * Converts an object to an associative array
+     * Converts an object to an associative array.
      *
      * @param object $object
+     *
      * @return array<string, mixed>
      */
     public function normalize(object $object): array
@@ -53,9 +54,10 @@ class Normalizer
     }
 
     /**
-     * Gets the JSON key for a property
+     * Gets the JSON key for a property.
      *
      * @param ReflectionProperty $property
+     *
      * @return string
      */
     private function getJsonKey(ReflectionProperty $property): string
@@ -78,10 +80,11 @@ class Normalizer
     }
 
     /**
-     * Gets the value of a property
+     * Gets the value of a property.
      *
      * @param ReflectionProperty $property
      * @param object $object
+     *
      * @return mixed
      */
     private function getPropertyValue(ReflectionProperty $property, object $object): mixed
@@ -97,9 +100,10 @@ class Normalizer
     }
 
     /**
-     * Gets the type name for a property
+     * Gets the type name for a property.
      *
      * @param ReflectionProperty $property
+     *
      * @return string
      */
     private function getPropertyType(ReflectionProperty $property): string
@@ -131,12 +135,13 @@ class Normalizer
     }
 
     /**
-     * Normalizes a value using the appropriate type handler
+     * Normalizes a value using the appropriate type handler.
      *
      * @param mixed $value
      * @param string $typeName
      * @param class-string|null $arrayOf
      * @param class-string|null $classType
+     *
      * @return mixed
      */
     private function normalizeValue(mixed $value, string $typeName, ?string $arrayOf = null, ?string $classType = null): mixed
@@ -150,9 +155,10 @@ class Normalizer
     }
 
     /**
-     * Determines if null values should be included in output
+     * Determines if null values should be included in output.
      *
      * @param ReflectionProperty $property
+     *
      * @return bool
      */
     private function shouldIncludeNull(ReflectionProperty $property): bool
@@ -162,9 +168,10 @@ class Normalizer
     }
 
     /**
-     * Gets arrayOf from property attributes
+     * Gets arrayOf from property attributes.
      *
      * @param ReflectionProperty $property
+     *
      * @return class-string|null
      */
     private function getArrayOf(ReflectionProperty $property): ?string
@@ -187,9 +194,10 @@ class Normalizer
     }
 
     /**
-     * Gets classType from property attributes
+     * Gets classType from property attributes.
      *
      * @param ReflectionProperty $property
+     *
      * @return class-string|null
      */
     private function getClassType(ReflectionProperty $property): ?string
@@ -210,6 +218,7 @@ class Normalizer
      *
      * @param ReflectionProperty $property
      * @param mixed $value
+     *
      * @return mixed
      */
     private function applyFilters(ReflectionProperty $property, mixed $value): mixed
