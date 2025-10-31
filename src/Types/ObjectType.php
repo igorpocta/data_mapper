@@ -21,9 +21,11 @@ class ObjectType implements TypeInterface
 
     /**
      * @param class-string<T> $className
+     * @param bool $strictMode
      */
     public function __construct(
-        private readonly string $className
+        private readonly string $className,
+        private readonly bool $strictMode = false
     ) {
         if (!class_exists($this->className)) {
             throw new InvalidArgumentException(
@@ -32,6 +34,7 @@ class ObjectType implements TypeInterface
         }
 
         $this->denormalizer = new Denormalizer();
+        $this->denormalizer->setStrictMode($this->strictMode);
         $this->normalizer = new Normalizer();
     }
 

@@ -14,9 +14,31 @@ class TypeResolver
     /** @var array<string, string> */
     private array $aliasMap = [];
 
+    private bool $strictMode = false;
+
     public function __construct()
     {
         $this->registerDefaultTypes();
+    }
+
+    /**
+     * Set strict mode for nested denormalizations.
+     *
+     * @param bool $strictMode
+     */
+    public function setStrictMode(bool $strictMode): void
+    {
+        $this->strictMode = $strictMode;
+    }
+
+    /**
+     * Get current strict mode setting.
+     *
+     * @return bool
+     */
+    public function isStrictMode(): bool
+    {
+        return $this->strictMode;
     }
 
     /**
@@ -207,22 +229,24 @@ class TypeResolver
     }
 
     /**
-     * Creates an array type handler for arrays of objects
+     * Creates an array type handler for arrays of objects.
      *
      * @param class-string $elementClassName
+     *
      * @return TypeInterface
      */
     private function createArrayType(string $elementClassName): TypeInterface
     {
-        $cacheKey = 'array<' . $elementClassName . '>';
+        // Include strict mode in cache key to avoid returning wrong instance
+        $cacheKey = 'array<' . $elementClassName . '>:strict:' . ($this->strictMode ? '1' : '0');
 
         // Check if we already have this configuration cached
         if (isset($this->types[$cacheKey])) {
             return $this->types[$cacheKey];
         }
 
-        // Create new ArrayType instance
-        $type = new ArrayType($elementClassName);
+        // Create new ArrayType instance with strict mode
+        $type = new ArrayType($elementClassName, null, $this->strictMode);
 
         // Cache it
         $this->types[$cacheKey] = $type;
@@ -254,22 +278,24 @@ class TypeResolver
     }
 
     /**
-     * Creates an object type handler for nested objects
+     * Creates an object type handler for nested objects.
      *
      * @param class-string $className
+     *
      * @return TypeInterface
      */
     private function createObjectType(string $className): TypeInterface
     {
-        $cacheKey = 'object<' . $className . '>';
+        // Include strict mode in cache key to avoid returning wrong instance
+        $cacheKey = 'object<' . $className . '>:strict:' . ($this->strictMode ? '1' : '0');
 
         // Check if we already have this configuration cached
         if (isset($this->types[$cacheKey])) {
             return $this->types[$cacheKey];
         }
 
-        // Create new ObjectType instance
-        $type = new ObjectType($className);
+        // Create new ObjectType instance with strict mode
+        $type = new ObjectType($className, $this->strictMode);
 
         // Cache it
         $this->types[$cacheKey] = $type;

@@ -72,6 +72,7 @@ class Mapper
 
         $this->denormalizer = $denormalizer ?? new Denormalizer($this->typeResolver, $this->metadataFactory);
         $this->denormalizer->setStrictMode($this->strictMode);
+        $this->typeResolver->setStrictMode($this->strictMode);
         $this->normalizer = $normalizer ?? new Normalizer($this->typeResolver, $this->metadataFactory);
 
         // Setup event listener for debugging events
@@ -173,6 +174,7 @@ class Mapper
     {
         $this->strictMode = $strictMode;
         $this->denormalizer->setStrictMode($strictMode);
+        $this->typeResolver->setStrictMode($strictMode);
     }
 
     /**

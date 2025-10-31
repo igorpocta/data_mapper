@@ -19,12 +19,14 @@ class ArrayType implements TypeInterface
     private ?TypeInterface $elementType = null;
 
     /**
-     * @param class-string|null $elementClassName Class name for array elements (for object arrays)
-     * @param TypeInterface|null $elementType Type handler for array elements (for scalar arrays)
+     * @param class-string|null $elementClassName Class name for array elements (for object arrays).
+     * @param TypeInterface|null $elementType Type handler for array elements (for scalar arrays).
+     * @param bool $strictMode Enable strict mode for nested denormalizations.
      */
     public function __construct(
         private readonly ?string $elementClassName = null,
-        ?TypeInterface $elementType = null
+        ?TypeInterface $elementType = null,
+        private readonly bool $strictMode = false
     ) {
         if ($this->elementClassName !== null) {
             if (!class_exists($this->elementClassName)) {
@@ -33,6 +35,7 @@ class ArrayType implements TypeInterface
                 );
             }
             $this->denormalizer = new Denormalizer();
+            $this->denormalizer->setStrictMode($this->strictMode);
             $this->normalizer = new Normalizer();
         }
 
