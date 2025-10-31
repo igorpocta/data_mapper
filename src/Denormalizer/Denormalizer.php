@@ -37,6 +37,14 @@ class Denormalizer
     private bool $ownsRootPayload = false;
 
     /**
+     * Stack of class names with depths for cycle detection.
+     * Format: [className => depth] where depth is the nesting level.
+     *
+     * @var array<string, int>
+     */
+    private array $classDepthMap = [];
+
+    /**
      * Path prefix for nested denormalization (e.g., "addresses[0]" when denormalizing array element).
      * Used to provide better error messages with full path.
      */
@@ -112,6 +120,7 @@ class Denormalizer
      * @return T
      *
      * @throws ValidationException
+     * @throws \Pocta\DataMapper\Exceptions\CircularReferenceException
      */
     public function denormalize(array $data, string $className): object
     {
@@ -126,40 +135,61 @@ class Denormalizer
             $this->ownsRootPayload = true;
         }
 
-        // Push current payload
+        // Push current payload FIRST to get correct depth
         $this->contextStack[] = $data;
 
-        // Resolve the actual class to instantiate (handles discriminator mapping)
-        $className = $this->resolveClassName($className, $data);
+        // Get current depth (how many denormalize calls deep we are)
+        $currentDepth = count($this->contextStack);
 
-        $reflection = new ReflectionClass($className);
-        $constructor = $reflection->getConstructor();
-
-        // Validate unknown keys in strict mode
-        if ($this->strictMode) {
-            $this->validateUnknownKeys($reflection, $constructor, $data);
+        // Detect circular references: if this class is already being processed at a SHALLOWER depth,
+        // it's a cycle. If it's at the SAME depth, it's a sibling (e.g., array elements) which is OK.
+        if (isset($this->classDepthMap[$className]) && $this->classDepthMap[$className] < $currentDepth) {
+            $stack = array_keys($this->classDepthMap);
+            throw new \Pocta\DataMapper\Exceptions\CircularReferenceException(
+                sprintf(
+                    'Circular reference detected: attempting to denormalize "%s" which is already being processed in the call stack: %s',
+                    $className,
+                    implode(' -> ', array_merge($stack, [$className]))
+                )
+            );
         }
 
-        if ($constructor && $constructor->getNumberOfParameters() > 0) {
-            $result = $this->createWithConstructor($reflection, $constructor, $data);
-        } else {
-            $result = $this->createWithoutConstructor($reflection, $data);
-        }
+        // Record this class at current depth
+        $this->classDepthMap[$className] = $currentDepth;
 
-        // Check if any errors were collected
-        if (!empty($this->errors)) {
-            // Pop before throwing
+        try {
+            // Resolve the actual class to instantiate (handles discriminator mapping)
+            $className = $this->resolveClassName($className, $data);
+
+            $reflection = new ReflectionClass($className);
+            $constructor = $reflection->getConstructor();
+
+            // Validate unknown keys in strict mode
+            if ($this->strictMode) {
+                $this->validateUnknownKeys($reflection, $constructor, $data);
+            }
+
+            if ($constructor && $constructor->getNumberOfParameters() > 0) {
+                $result = $this->createWithConstructor($reflection, $constructor, $data);
+            } else {
+                $result = $this->createWithoutConstructor($reflection, $data);
+            }
+
+            // Check if any errors were collected
+            if (!empty($this->errors)) {
+                throw new ValidationException($this->errors);
+            }
+
+            if (empty($this->contextStack) && $this->ownsRootPayload) {
+                $this->typeResolver->setRootPayload(null);
+                $this->ownsRootPayload = false;
+            }
+            return $result;
+        } finally {
+            // Always clean up stack and depth map
             array_pop($this->contextStack);
-            throw new ValidationException($this->errors);
+            unset($this->classDepthMap[$className]);
         }
-
-        // Pop current payload and return result
-        array_pop($this->contextStack);
-        if (empty($this->contextStack) && $this->ownsRootPayload) {
-            $this->typeResolver->setRootPayload(null);
-            $this->ownsRootPayload = false;
-        }
-        return $result;
     }
 
     /**

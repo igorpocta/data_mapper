@@ -36,8 +36,13 @@ class ObjectType implements TypeInterface
             );
         }
 
-        $this->denormalizer = new Denormalizer($this->typeResolver);
-        $this->denormalizer->setStrictMode($this->strictMode);
+        // Use shared denormalizer from TypeResolver if available
+        if ($this->typeResolver !== null) {
+            $this->denormalizer = $this->typeResolver->getSharedDenormalizer();
+        } else {
+            $this->denormalizer = new Denormalizer();
+            $this->denormalizer->setStrictMode($this->strictMode);
+        }
         $this->normalizer = new Normalizer($this->typeResolver);
     }
 

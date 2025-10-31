@@ -15,6 +15,13 @@ class Normalizer
 {
     private TypeResolver $typeResolver;
 
+    /**
+     * Stack of objects currently being normalized (for cycle detection).
+     *
+     * @var array<int, int>
+     */
+    private array $objectStack = [];
+
     public function __construct(
         ?TypeResolver $typeResolver = null,
         /** @phpstan-ignore-next-line property.onlyWritten */
@@ -29,28 +36,49 @@ class Normalizer
      * @param object $object
      *
      * @return array<string, mixed>
+     *
+     * @throws \Pocta\DataMapper\Exceptions\CircularReferenceException
      */
     public function normalize(object $object): array
     {
-        $reflection = new ReflectionClass($object);
-        $data = [];
-
-        foreach ($reflection->getProperties() as $property) {
-            $jsonKey = $this->getJsonKey($property);
-            $value = $this->getPropertyValue($property, $object);
-
-            if ($value !== null || $this->shouldIncludeNull($property)) {
-                $typeName = $this->getPropertyType($property);
-                $arrayOf = $this->getArrayOf($property);
-                $classType = $this->getClassType($property);
-                $normalizedValue = $this->normalizeValue($value, $typeName, $arrayOf, $classType);
-                // Apply post-normalization filters, if any
-                $normalizedValue = $this->applyFilters($property, $normalizedValue);
-                $data[$jsonKey] = $normalizedValue;
-            }
+        // Detect circular references
+        $objectHash = spl_object_id($object);
+        if (in_array($objectHash, $this->objectStack, true)) {
+            throw new \Pocta\DataMapper\Exceptions\CircularReferenceException(
+                sprintf(
+                    'Circular reference detected for object of class "%s"',
+                    get_class($object)
+                )
+            );
         }
 
-        return $data;
+        // Add to stack
+        $this->objectStack[] = $objectHash;
+
+        try {
+            $reflection = new ReflectionClass($object);
+            $data = [];
+
+            foreach ($reflection->getProperties() as $property) {
+                $jsonKey = $this->getJsonKey($property);
+                $value = $this->getPropertyValue($property, $object);
+
+                if ($value !== null || $this->shouldIncludeNull($property)) {
+                    $typeName = $this->getPropertyType($property);
+                    $arrayOf = $this->getArrayOf($property);
+                    $classType = $this->getClassType($property);
+                    $normalizedValue = $this->normalizeValue($value, $typeName, $arrayOf, $classType);
+                    // Apply post-normalization filters, if any
+                    $normalizedValue = $this->applyFilters($property, $normalizedValue);
+                    $data[$jsonKey] = $normalizedValue;
+                }
+            }
+
+            return $data;
+        } finally {
+            // Remove from stack
+            array_pop($this->objectStack);
+        }
     }
 
     /**

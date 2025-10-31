@@ -19,9 +19,25 @@ class TypeResolver
     /** @var array<string, mixed>|null */
     private ?array $rootPayload = null;
 
+    private ?\Pocta\DataMapper\Denormalizer\Denormalizer $sharedDenormalizer = null;
+
     public function __construct()
     {
         $this->registerDefaultTypes();
+    }
+
+    /**
+     * Get shared denormalizer instance for nested denormalizations.
+     *
+     * @return \Pocta\DataMapper\Denormalizer\Denormalizer
+     */
+    public function getSharedDenormalizer(): \Pocta\DataMapper\Denormalizer\Denormalizer
+    {
+        if ($this->sharedDenormalizer === null) {
+            $this->sharedDenormalizer = new \Pocta\DataMapper\Denormalizer\Denormalizer($this);
+            $this->sharedDenormalizer->setStrictMode($this->strictMode);
+        }
+        return $this->sharedDenormalizer;
     }
 
     /**
