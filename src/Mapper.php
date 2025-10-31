@@ -37,15 +37,15 @@ class Mapper
     private ?Profiler $profiler;
 
     /**
-     * @param MapperOptions|null $options Mapper configuration options
-     * @param Denormalizer|null $denormalizer Custom denormalizer instance
-     * @param Normalizer|null $normalizer Custom normalizer instance
-     * @param CacheInterface|null $cache Cache implementation (null = default ArrayCache, use NullCache to disable)
-     * @param TypeResolver|null $typeResolver Custom type resolver instance
-     * @param EventDispatcher|null $eventDispatcher Event dispatcher for hooks (null = creates new one)
-     * @param Validator|null $validator Custom validator instance
-     * @param Debugger|null $debugger Debugger for logging operations (null = disabled)
-     * @param Profiler|null $profiler Profiler for measuring performance (null = disabled)
+     * @param MapperOptions|null $options Mapper configuration options.
+     * @param Denormalizer|null $denormalizer Custom denormalizer instance.
+     * @param Normalizer|null $normalizer Custom normalizer instance.
+     * @param CacheInterface|null $cache Cache implementation (null = default ArrayCache, use NullCache to disable).
+     * @param TypeResolver|null $typeResolver Custom type resolver instance.
+     * @param EventDispatcher|null $eventDispatcher Event dispatcher for hooks (null = creates new one).
+     * @param Validator|null $validator Custom validator instance.
+     * @param Debugger|null $debugger Debugger for logging operations (null = disabled).
+     * @param Profiler|null $profiler Profiler for measuring performance (null = disabled).
      */
     public function __construct(
         ?MapperOptions $options = null,
@@ -81,7 +81,7 @@ class Mapper
     }
 
     /**
-     * Get the metadata factory (for cache management)
+     * Get the metadata factory (for cache management).
      */
     public function getMetadataFactory(): ClassMetadataFactory
     {
@@ -89,7 +89,7 @@ class Mapper
     }
 
     /**
-     * Get the event dispatcher
+     * Get the event dispatcher.
      */
     public function getEventDispatcher(): EventDispatcher
     {
@@ -97,7 +97,7 @@ class Mapper
     }
 
     /**
-     * Clear metadata cache for specific class or all classes
+     * Clear metadata cache for specific class or all classes.
      *
      * @param class-string|null $className
      */
@@ -107,11 +107,11 @@ class Mapper
     }
 
     /**
-     * Add event listener
+     * Add event listener.
      *
-     * @param string $eventName Event class name
-     * @param callable $listener Callable accepting EventInterface
-     * @param int $priority Higher priority = called first (default: 0)
+     * @param string $eventName Event class name.
+     * @param callable $listener Callable accepting EventInterface.
+     * @param int $priority Higher priority = called first.
      */
     public function addEventListener(string $eventName, callable $listener, int $priority = 0): void
     {
@@ -119,7 +119,7 @@ class Mapper
     }
 
     /**
-     * Remove event listener
+     * Remove event listener.
      */
     public function removeEventListener(string $eventName, callable $listener): void
     {
@@ -127,7 +127,7 @@ class Mapper
     }
 
     /**
-     * Get the validator
+     * Get the validator.
      */
     public function getValidator(): Validator
     {
@@ -135,7 +135,7 @@ class Mapper
     }
 
     /**
-     * Get the debugger
+     * Get the debugger.
      */
     public function getDebugger(): ?Debugger
     {
@@ -143,7 +143,7 @@ class Mapper
     }
 
     /**
-     * Get the profiler
+     * Get the profiler.
      */
     public function getProfiler(): ?Profiler
     {
@@ -151,7 +151,7 @@ class Mapper
     }
 
     /**
-     * Enable or disable auto-validation
+     * Enable or disable auto-validation.
      */
     public function setAutoValidate(bool $autoValidate): void
     {
@@ -159,7 +159,7 @@ class Mapper
     }
 
     /**
-     * Check if auto-validation is enabled
+     * Check if auto-validation is enabled.
      */
     public function isAutoValidate(): bool
     {
@@ -167,7 +167,7 @@ class Mapper
     }
 
     /**
-     * Enable or disable strict mode
+     * Enable or disable strict mode.
      */
     public function setStrictMode(bool $strictMode): void
     {
@@ -176,7 +176,7 @@ class Mapper
     }
 
     /**
-     * Check if strict mode is enabled
+     * Check if strict mode is enabled.
      */
     public function isStrictMode(): bool
     {
@@ -184,11 +184,13 @@ class Mapper
     }
 
     /**
-     * Manually validate an object
+     * Manually validate an object.
      *
      * @param object $object
-     * @param bool $throw Whether to throw exception on validation failure
-     * @return array<string, string> Array of errors (empty if valid)
+     * @param bool $throw Whether to throw exception on validation failure.
+     *
+     * @return array<string, string> Array of errors (empty if valid).
+     *
      * @throws \Pocta\DataMapper\Exceptions\ValidationException
      */
     public function validate(object $object, bool $throw = true): array
@@ -197,12 +199,15 @@ class Mapper
     }
 
     /**
-     * Maps JSON string to an object of the specified class
+     * Maps JSON string to an object of the specified class.
      *
      * @template T of object
+     *
      * @param string $json
      * @param class-string<T> $className
+     *
      * @return T
+     *
      * @throws JsonException
      * @throws InvalidArgumentException
      */
@@ -226,11 +231,13 @@ class Mapper
     }
 
     /**
-     * Maps an associative array to an object of the specified class
+     * Maps an associative array to an object of the specified class.
      *
      * @template T of object
+     *
      * @param array<string, mixed> $data
      * @param class-string<T> $className
+     *
      * @return T
      */
     public function fromArray(array $data, string $className): object
@@ -296,13 +303,8 @@ class Mapper
     }
 
     /**
-     * Maps a source object (Entity, DTO, etc.) to a target DTO class
-     * Supports property paths, getters, and nested object navigation
-     *
-     * @template T of object
-     * @param object $source Source object (Doctrine Entity, DTO, etc.)
-     * @param class-string<T> $className Target DTO class name
-     * @return T Mapped target object
+     * Maps a source object (Entity, DTO, etc.) to a target DTO class.
+     * Supports property paths, getters, and nested object navigation.
      *
      * Example:
      * ```php
@@ -312,6 +314,13 @@ class Mapper
      * // Map to DTO
      * $userDto = $mapper->fromObject($user, UserDTO::class);
      * ```
+     *
+     * @template T of object
+     *
+     * @param object $source Source object (Doctrine Entity, DTO, etc.).
+     * @param class-string<T> $className Target DTO class name.
+     *
+     * @return T Mapped target object.
      */
     public function fromObject(object $source, string $className): object
     {
@@ -330,10 +339,11 @@ class Mapper
     }
 
     /**
-     * Convert source object to array based on target class MapFrom attributes
+     * Convert source object to array based on target class MapFrom attributes.
      *
      * @param object $source
      * @param class-string $className
+     *
      * @return array<string, mixed>
      */
     private function objectToArray(object $source, string $className): array
@@ -381,14 +391,17 @@ class Mapper
     }
 
     /**
-     * Merges partial data from array into an existing object
-     * Only updates properties that are present in the input data
+     * Merges partial data from array into an existing object.
+     * Only updates properties that are present in the input data.
      *
      * @template T of object
-     * @param array<string, mixed> $data Partial data to merge
-     * @param T $target Existing object to update
-     * @param bool $skipNull Skip null values in input data (don't overwrite with null)
-     * @return T Updated object (same instance)
+     *
+     * @param array<string, mixed> $data Partial data to merge.
+     * @param T $target Existing object to update.
+     * @param bool $skipNull Skip null values in input data (don't overwrite with null).
+     *
+     * @return T Updated object (same instance).
+     *
      * @throws \Pocta\DataMapper\Exceptions\ValidationException
      */
     public function merge(array $data, object $target, bool $skipNull = false): object
@@ -445,10 +458,11 @@ class Mapper
     }
 
     /**
-     * Finds a property by its JSON key (considering MapProperty attributes)
+     * Finds a property by its JSON key (considering MapProperty attributes).
      *
      * @param \ReflectionClass<object> $reflection
      * @param string $jsonKey
+     *
      * @return \ReflectionProperty|null
      */
     private function findPropertyByJsonKey(\ReflectionClass $reflection, string $jsonKey): ?\ReflectionProperty
@@ -482,11 +496,12 @@ class Mapper
     }
 
     /**
-     * Gets property type considering attributes
+     * Gets property type considering attributes.
      *
      * @param \ReflectionProperty $property
      * @param array<\ReflectionAttribute<\Pocta\DataMapper\Attributes\MapDateTimeProperty>> $dateTimeAttributes
      * @param array<\ReflectionAttribute<\Pocta\DataMapper\Attributes\MapProperty>> $propertyAttributes
+     *
      * @return string
      */
     private function getPropertyType(
@@ -567,12 +582,15 @@ class Mapper
     }
 
     /**
-     * Maps a collection of arrays to a collection of objects
+     * Maps a collection of arrays to a collection of objects.
      *
      * @template T of object
-     * @param array<int, array<string, mixed>> $collection Array of associative arrays
+     *
+     * @param array<int, array<string, mixed>> $collection Array of associative arrays.
      * @param class-string<T> $className
-     * @return array<int, T> Array of objects
+     *
+     * @return array<int, T> Array of objects.
+     *
      * @throws \Pocta\DataMapper\Exceptions\ValidationException
      */
     public function fromArrayCollection(array $collection, string $className): array
@@ -592,12 +610,15 @@ class Mapper
     }
 
     /**
-     * Maps a JSON array to a collection of objects
+     * Maps a JSON array to a collection of objects.
      *
      * @template T of object
-     * @param string $json JSON array string
+     *
+     * @param string $json JSON array string.
      * @param class-string<T> $className
-     * @return array<int, T> Array of objects
+     *
+     * @return array<int, T> Array of objects.
+     *
      * @throws JsonException
      * @throws InvalidArgumentException
      * @throws \Pocta\DataMapper\Exceptions\ValidationException
@@ -622,10 +643,12 @@ class Mapper
     }
 
     /**
-     * Maps an object to JSON string
+     * Maps an object to JSON string.
      *
      * @param object $object
+     *
      * @return string
+     *
      * @throws JsonException
      */
     public function toJson(object $object): string
@@ -642,10 +665,12 @@ class Mapper
     }
 
     /**
-     * Maps a collection of objects to JSON array string
+     * Maps a collection of objects to JSON array string.
      *
-     * @param array<int, object> $collection Array of objects
-     * @return string JSON array string
+     * @param array<int, object> $collection Array of objects.
+     *
+     * @return string JSON array string.
+     *
      * @throws JsonException
      */
     public function toJsonCollection(array $collection): string
@@ -662,9 +687,10 @@ class Mapper
     }
 
     /**
-     * Maps an object to an associative array
+     * Maps an object to an associative array.
      *
      * @param object $object
+     *
      * @return array<string, mixed>
      */
     public function toArray(object $object): array
@@ -695,10 +721,11 @@ class Mapper
     }
 
     /**
-     * Maps a collection of objects to an array of associative arrays
+     * Maps a collection of objects to an array of associative arrays.
      *
-     * @param array<int, object> $collection Array of objects
-     * @return array<int, array<string, mixed>> Array of associative arrays
+     * @param array<int, object> $collection Array of objects.
+     *
+     * @return array<int, array<string, mixed>> Array of associative arrays.
      */
     public function toArrayCollection(array $collection): array
     {
@@ -717,7 +744,7 @@ class Mapper
     }
 
     /**
-     * Setup debug event listeners
+     * Setup debug event listeners.
      */
     private function setupDebugEventListeners(): void
     {
