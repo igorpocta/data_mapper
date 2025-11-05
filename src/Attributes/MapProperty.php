@@ -13,7 +13,7 @@ class MapProperty
      * @param string|null $name Custom JSON key name (mutually exclusive with $path)
      * @param string|null $path Property path with dot notation and array indexes (e.g., "user.address.street", "addresses[0].street")
      * @param PropertyType|null $type Type of the property
-     * @param class-string|null $arrayOf Class name for array elements (when type is Array)
+     * @param class-string|string|null $arrayOf Class name for array of objects or type name for array of scalars (e.g., 'int', 'string', 'float', 'bool') when type is Array
      * @param class-string|null $classType Class name for nested objects
      */
     public function __construct(

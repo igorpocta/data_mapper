@@ -198,6 +198,7 @@ $strictOptions = $baseOptions->with(strictMode: true);
 
 ### Complex Types
 - `array` - Array with arbitrary content
+- `array<int>`, `array<string>`, `array<float>`, `array<bool>` - Array of scalars using `arrayOf` attribute
 - `array<ClassName>` - Array of objects using `arrayOf` attribute
 - Custom objects - Nested objects of arbitrary depth
 
@@ -3321,6 +3322,67 @@ $users = array_map(
     fn($data) => $mapper->fromArray($data, User::class),
     $usersData
 );
+```
+
+### Arrays of Scalars
+
+The `arrayOf` attribute now supports scalar types (int, string, float, bool) in addition to objects:
+
+```php
+use Pocta\DataMapper\Attributes\MapProperty;
+use Pocta\DataMapper\Attributes\PropertyType;
+
+class Product
+{
+    public function __construct(
+        public int $id,
+        public string $name,
+
+        // Array of integers
+        #[MapProperty(type: PropertyType::Array, arrayOf: 'int')]
+        public array $scores,
+
+        // Array of strings
+        #[MapProperty(type: PropertyType::Array, arrayOf: 'string')]
+        public array $tags,
+
+        // Array of floats
+        #[MapProperty(type: PropertyType::Array, arrayOf: 'float')]
+        public array $prices,
+
+        // Array of booleans
+        #[MapProperty(type: PropertyType::Array, arrayOf: 'bool')]
+        public array $flags
+    ) {}
+}
+
+$data = [
+    'id' => 1,
+    'name' => 'Example Product',
+    'scores' => [10, 20, 30, 40],
+    'tags' => ['php', 'testing', 'mapper'],
+    'prices' => [10.5, 20.99, 30.0],
+    'flags' => [true, false, true]
+];
+
+$product = $mapper->fromArray($data, Product::class);
+// $product->scores is array<int>: [10, 20, 30, 40]
+// $product->tags is array<string>: ['php', 'testing', 'mapper']
+// $product->prices is array<float>: [10.5, 20.99, 30.0]
+// $product->flags is array<bool>: [true, false, true]
+
+// Type conversion is automatic
+$dataWithStrings = [
+    'id' => 1,
+    'name' => 'Example Product',
+    'scores' => ['10', '20', '30'], // strings will be converted to int
+    'tags' => ['php', 'testing'],
+    'prices' => [],
+    'flags' => []
+];
+
+$product = $mapper->fromArray($dataWithStrings, Product::class);
+// $product->scores is array<int>: [10, 20, 30] - converted from strings
 ```
 
 ## Testing

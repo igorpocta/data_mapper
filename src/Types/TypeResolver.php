@@ -113,7 +113,7 @@ class TypeResolver
      * @param string $typeName
      * @param string|null $format Optional format (for DateTime types)
      * @param string|null $timezone Optional timezone (for DateTime types)
-     * @param class-string|null $arrayOf Optional class name for array elements
+     * @param string|null $arrayOf Optional class name for array elements or scalar type name
      * @param class-string|null $classType Optional class name for nested objects
      * @return TypeInterface
      * @throws InvalidArgumentException If type is not found
@@ -125,7 +125,7 @@ class TypeResolver
         ?string $arrayOf = null,
         ?string $classType = null
     ): TypeInterface {
-        // Check if it's an array type with objects
+        // Check if it's an array type with arrayOf specified
         if ($typeName === 'array' && $arrayOf !== null) {
             return $this->createArrayType($arrayOf);
         }
@@ -268,24 +268,33 @@ class TypeResolver
     }
 
     /**
-     * Creates an array type handler for arrays of objects.
+     * Creates an array type handler for arrays of objects or scalars.
      *
-     * @param class-string $elementClassName
+     * @param string $elementClassOrType Class name for objects or type name for scalars (e.g., 'int', 'string')
      *
      * @return TypeInterface
      */
-    private function createArrayType(string $elementClassName): TypeInterface
+    private function createArrayType(string $elementClassOrType): TypeInterface
     {
         // Include strict mode in cache key to avoid returning wrong instance
-        $cacheKey = 'array<' . $elementClassName . '>:strict:' . ($this->strictMode ? '1' : '0');
+        $cacheKey = 'array<' . $elementClassOrType . '>:strict:' . ($this->strictMode ? '1' : '0');
 
         // Check if we already have this configuration cached
         if (isset($this->types[$cacheKey])) {
             return $this->types[$cacheKey];
         }
 
-        // Create new ArrayType instance with strict mode and shared TypeResolver
-        $type = new ArrayType($elementClassName, null, $this->strictMode, $this);
+        // Determine if it's a scalar type or a class
+        $isScalarType = $this->hasType($elementClassOrType) && !class_exists($elementClassOrType);
+
+        if ($isScalarType) {
+            // Create array of scalars
+            $elementType = $this->getType($elementClassOrType);
+            $type = new ArrayType(null, $elementType, $this->strictMode, $this);
+        } else {
+            // Create array of objects (existing behavior)
+            $type = new ArrayType($elementClassOrType, null, $this->strictMode, $this);
+        }
 
         // Cache it
         $this->types[$cacheKey] = $type;
