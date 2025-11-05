@@ -293,6 +293,7 @@ class TypeResolver
             $type = new ArrayType(null, $elementType, $this->strictMode, $this);
         } else {
             // Create array of objects (existing behavior)
+            // @phpstan-ignore-next-line argument.type (checked by class_exists above, safe to pass as class-string)
             $type = new ArrayType($elementClassOrType, null, $this->strictMode, $this);
         }
 

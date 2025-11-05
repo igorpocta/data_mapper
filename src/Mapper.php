@@ -580,15 +580,31 @@ class Mapper
     /**
      * @param array<\ReflectionAttribute<\Pocta\DataMapper\Attributes\MapDateTimeProperty>> $dateTimeAttributes
      * @param array<\ReflectionAttribute<\Pocta\DataMapper\Attributes\MapProperty>> $propertyAttributes
-     * @return class-string|null
+     * @return class-string|string|null
      */
     private function getArrayOfFromAttributes(array $dateTimeAttributes, array $propertyAttributes): ?string
     {
         if (!empty($dateTimeAttributes)) {
-            return $dateTimeAttributes[0]->newInstance()->arrayOf;
+            $arrayOf = $dateTimeAttributes[0]->newInstance()->arrayOf;
+            // Convert PropertyType or ArrayElementType enum to string value if needed
+            if ($arrayOf instanceof \Pocta\DataMapper\Attributes\PropertyType) {
+                return $arrayOf->value;
+            }
+            if ($arrayOf instanceof \Pocta\DataMapper\Attributes\ArrayElementType) {
+                return $arrayOf->value;
+            }
+            return $arrayOf;
         }
         if (!empty($propertyAttributes)) {
-            return $propertyAttributes[0]->newInstance()->arrayOf;
+            $arrayOf = $propertyAttributes[0]->newInstance()->arrayOf;
+            // Convert PropertyType or ArrayElementType enum to string value if needed
+            if ($arrayOf instanceof \Pocta\DataMapper\Attributes\PropertyType) {
+                return $arrayOf->value;
+            }
+            if ($arrayOf instanceof \Pocta\DataMapper\Attributes\ArrayElementType) {
+                return $arrayOf->value;
+            }
+            return $arrayOf;
         }
         return null;
     }

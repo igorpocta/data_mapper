@@ -198,7 +198,7 @@ $strictOptions = $baseOptions->with(strictMode: true);
 
 ### Complex Types
 - `array` - Array with arbitrary content
-- `array<int>`, `array<string>`, `array<float>`, `array<bool>` - Array of scalars using `arrayOf` attribute
+- `array<int>`, `array<string>`, `array<float>`, `array<bool>` - Array of scalars using `arrayOf` attribute (use `ArrayElementType` enum)
 - `array<ClassName>` - Array of objects using `arrayOf` attribute
 - Custom objects - Nested objects of arbitrary depth
 
@@ -3326,9 +3326,24 @@ $users = array_map(
 
 ### Arrays of Scalars
 
-The `arrayOf` attribute now supports scalar types (int, string, float, bool) in addition to objects:
+The `arrayOf` attribute supports scalar types (int, string, float, bool) and objects. Use `ArrayElementType` enum (recommended) or string type names for backward compatibility.
+
+**Supported types in `arrayOf`:**
+- ✅ Scalar types: `ArrayElementType::Int`, `ArrayElementType::String`, `ArrayElementType::Float`, `ArrayElementType::Bool` (or string equivalents: `'int'`, `'string'`, `'float'`, `'bool'`)
+- ✅ Objects: Any class name (e.g., `Address::class`, `User::class`)
+- ❌ Complex types: `DateTime`, `DateTimeImmutable`, `Array` - these are NOT supported in `arrayOf` and will throw an `InvalidArgumentException`
+
+**For arrays of DateTime objects**, use the class name directly:
+```php
+// For arrays of DateTime objects, use class-string
+#[MapProperty(type: PropertyType::Array, arrayOf: \DateTime::class)]
+public array $dates;
+```
+
+**Example with scalar arrays:**
 
 ```php
+use Pocta\DataMapper\Attributes\ArrayElementType;
 use Pocta\DataMapper\Attributes\MapProperty;
 use Pocta\DataMapper\Attributes\PropertyType;
 
@@ -3338,21 +3353,25 @@ class Product
         public int $id,
         public string $name,
 
-        // Array of integers
-        #[MapProperty(type: PropertyType::Array, arrayOf: 'int')]
+        // Array of integers - using ArrayElementType enum (recommended)
+        #[MapProperty(type: PropertyType::Array, arrayOf: ArrayElementType::Int)]
         public array $scores,
 
-        // Array of strings
-        #[MapProperty(type: PropertyType::Array, arrayOf: 'string')]
+        // Array of strings - using ArrayElementType enum (recommended)
+        #[MapProperty(type: PropertyType::Array, arrayOf: ArrayElementType::String)]
         public array $tags,
 
-        // Array of floats
-        #[MapProperty(type: PropertyType::Array, arrayOf: 'float')]
+        // Array of floats - using ArrayElementType enum (recommended)
+        #[MapProperty(type: PropertyType::Array, arrayOf: ArrayElementType::Float)]
         public array $prices,
 
-        // Array of booleans
-        #[MapProperty(type: PropertyType::Array, arrayOf: 'bool')]
-        public array $flags
+        // Array of booleans - using ArrayElementType enum (recommended)
+        #[MapProperty(type: PropertyType::Array, arrayOf: ArrayElementType::Bool)]
+        public array $flags,
+
+        // Backward compatibility - string type names still work
+        #[MapProperty(type: PropertyType::Array, arrayOf: 'int')]
+        public array $ratings = []
     ) {}
 }
 
@@ -3362,7 +3381,8 @@ $data = [
     'scores' => [10, 20, 30, 40],
     'tags' => ['php', 'testing', 'mapper'],
     'prices' => [10.5, 20.99, 30.0],
-    'flags' => [true, false, true]
+    'flags' => [true, false, true],
+    'ratings' => [5, 4, 3]
 ];
 
 $product = $mapper->fromArray($data, Product::class);
@@ -3370,6 +3390,7 @@ $product = $mapper->fromArray($data, Product::class);
 // $product->tags is array<string>: ['php', 'testing', 'mapper']
 // $product->prices is array<float>: [10.5, 20.99, 30.0]
 // $product->flags is array<bool>: [true, false, true]
+// $product->ratings is array<int>: [5, 4, 3]
 
 // Type conversion is automatic
 $dataWithStrings = [
@@ -3378,11 +3399,13 @@ $dataWithStrings = [
     'scores' => ['10', '20', '30'], // strings will be converted to int
     'tags' => ['php', 'testing'],
     'prices' => [],
-    'flags' => []
+    'flags' => [],
+    'ratings' => ['5', '4'] // strings will be converted to int
 ];
 
 $product = $mapper->fromArray($dataWithStrings, Product::class);
 // $product->scores is array<int>: [10, 20, 30] - converted from strings
+// $product->ratings is array<int>: [5, 4] - converted from strings
 ```
 
 ## Testing

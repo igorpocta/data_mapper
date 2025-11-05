@@ -167,7 +167,7 @@ class Normalizer
      *
      * @param mixed $value
      * @param string $typeName
-     * @param class-string|null $arrayOf
+     * @param string|null $arrayOf Class name or scalar type name
      * @param class-string|null $classType
      *
      * @return mixed
@@ -200,7 +200,7 @@ class Normalizer
      *
      * @param ReflectionProperty $property
      *
-     * @return class-string|null
+     * @return class-string|string|null
      */
     private function getArrayOf(ReflectionProperty $property): ?string
     {
@@ -208,6 +208,13 @@ class Normalizer
         $dateTimeAttributes = $property->getAttributes(MapDateTimeProperty::class);
         if (!empty($dateTimeAttributes)) {
             $attr = $dateTimeAttributes[0]->newInstance();
+            // Convert PropertyType or ArrayElementType enum to string value if needed
+            if ($attr->arrayOf instanceof \Pocta\DataMapper\Attributes\PropertyType) {
+                return $attr->arrayOf->value;
+            }
+            if ($attr->arrayOf instanceof \Pocta\DataMapper\Attributes\ArrayElementType) {
+                return $attr->arrayOf->value;
+            }
             return $attr->arrayOf;
         }
 
@@ -215,6 +222,13 @@ class Normalizer
         $propertyAttributes = $property->getAttributes(MapProperty::class);
         if (!empty($propertyAttributes)) {
             $attr = $propertyAttributes[0]->newInstance();
+            // Convert PropertyType or ArrayElementType enum to string value if needed
+            if ($attr->arrayOf instanceof \Pocta\DataMapper\Attributes\PropertyType) {
+                return $attr->arrayOf->value;
+            }
+            if ($attr->arrayOf instanceof \Pocta\DataMapper\Attributes\ArrayElementType) {
+                return $attr->arrayOf->value;
+            }
             return $attr->arrayOf;
         }
 

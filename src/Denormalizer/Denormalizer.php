@@ -591,7 +591,7 @@ class Denormalizer
      * @param bool $isNullable
      * @param string|null $format
      * @param string|null $timezone
-     * @param class-string|null $arrayOf
+     * @param string|null $arrayOf Class name or scalar type name
      * @param class-string|null $classType
      *
      * @return mixed
@@ -693,17 +693,31 @@ class Denormalizer
      *
      * @param array<\ReflectionAttribute<MapDateTimeProperty>> $dateTimeAttributes
      * @param array<\ReflectionAttribute<MapProperty>> $propertyAttributes
-     * @return class-string|null
+     * @return class-string|string|null
      */
     private function getArrayOfFromParameter(array $dateTimeAttributes, array $propertyAttributes): ?string
     {
         if (!empty($dateTimeAttributes)) {
             $attr = $dateTimeAttributes[0]->newInstance();
+            // Convert PropertyType or ArrayElementType enum to string value if needed
+            if ($attr->arrayOf instanceof \Pocta\DataMapper\Attributes\PropertyType) {
+                return $attr->arrayOf->value;
+            }
+            if ($attr->arrayOf instanceof \Pocta\DataMapper\Attributes\ArrayElementType) {
+                return $attr->arrayOf->value;
+            }
             return $attr->arrayOf;
         }
 
         if (!empty($propertyAttributes)) {
             $attr = $propertyAttributes[0]->newInstance();
+            // Convert PropertyType or ArrayElementType enum to string value if needed
+            if ($attr->arrayOf instanceof \Pocta\DataMapper\Attributes\PropertyType) {
+                return $attr->arrayOf->value;
+            }
+            if ($attr->arrayOf instanceof \Pocta\DataMapper\Attributes\ArrayElementType) {
+                return $attr->arrayOf->value;
+            }
             return $attr->arrayOf;
         }
 
@@ -715,17 +729,31 @@ class Denormalizer
      *
      * @param array<\ReflectionAttribute<MapDateTimeProperty>> $dateTimeAttributes
      * @param array<\ReflectionAttribute<MapProperty>> $propertyAttributes
-     * @return class-string|null
+     * @return class-string|string|null
      */
     private function getArrayOfFromProperty(array $dateTimeAttributes, array $propertyAttributes): ?string
     {
         if (!empty($dateTimeAttributes)) {
             $attr = $dateTimeAttributes[0]->newInstance();
+            // Convert PropertyType or ArrayElementType enum to string value if needed
+            if ($attr->arrayOf instanceof \Pocta\DataMapper\Attributes\PropertyType) {
+                return $attr->arrayOf->value;
+            }
+            if ($attr->arrayOf instanceof \Pocta\DataMapper\Attributes\ArrayElementType) {
+                return $attr->arrayOf->value;
+            }
             return $attr->arrayOf;
         }
 
         if (!empty($propertyAttributes)) {
             $attr = $propertyAttributes[0]->newInstance();
+            // Convert PropertyType or ArrayElementType enum to string value if needed
+            if ($attr->arrayOf instanceof \Pocta\DataMapper\Attributes\PropertyType) {
+                return $attr->arrayOf->value;
+            }
+            if ($attr->arrayOf instanceof \Pocta\DataMapper\Attributes\ArrayElementType) {
+                return $attr->arrayOf->value;
+            }
             return $attr->arrayOf;
         }
 

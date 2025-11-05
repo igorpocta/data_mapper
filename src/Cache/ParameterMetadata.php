@@ -21,7 +21,7 @@ class ParameterMetadata
      * @param array<object> $attributes All attributes on this parameter
      * @param string|null $format DateTime format (if applicable)
      * @param string|null $timezone DateTime timezone (if applicable)
-     * @param class-string|null $arrayOf Class name if parameter is array of objects
+     * @param string|null $arrayOf Class name if parameter is array of objects, or scalar type name (int, string, etc.)
      * @param class-string|null $classType Class name if parameter is an object
      * @param MapFrom|null $mapFrom MapFrom attribute for object mapping
      */

@@ -253,16 +253,30 @@ class ClassMetadataFactory
     /**
      * @param array<\ReflectionAttribute<MapDateTimeProperty>> $dateTimeAttrs
      * @param array<\ReflectionAttribute<MapProperty>> $propertyAttrs
-     * @return class-string|null
+     * @return class-string|string|null
      */
     private function getArrayOf(array $dateTimeAttrs, array $propertyAttrs): ?string
     {
         if (!empty($dateTimeAttrs)) {
             $attr = $dateTimeAttrs[0]->newInstance();
+            // Convert PropertyType or ArrayElementType enum to string value if needed
+            if ($attr->arrayOf instanceof \Pocta\DataMapper\Attributes\PropertyType) {
+                return $attr->arrayOf->value;
+            }
+            if ($attr->arrayOf instanceof \Pocta\DataMapper\Attributes\ArrayElementType) {
+                return $attr->arrayOf->value;
+            }
             return $attr->arrayOf;
         }
         if (!empty($propertyAttrs)) {
             $attr = $propertyAttrs[0]->newInstance();
+            // Convert PropertyType or ArrayElementType enum to string value if needed
+            if ($attr->arrayOf instanceof \Pocta\DataMapper\Attributes\PropertyType) {
+                return $attr->arrayOf->value;
+            }
+            if ($attr->arrayOf instanceof \Pocta\DataMapper\Attributes\ArrayElementType) {
+                return $attr->arrayOf->value;
+            }
             return $attr->arrayOf;
         }
         return null;
