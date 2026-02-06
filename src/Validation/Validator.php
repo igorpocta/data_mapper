@@ -14,6 +14,11 @@ use ReflectionProperty;
  */
 class Validator
 {
+    public function __construct(
+        private readonly ?ValidatorResolverInterface $validatorResolver = null,
+    ) {
+    }
+
     /**
      * Validate an object against its Assert attributes
      *
@@ -143,6 +148,24 @@ class Validator
                             $errors = array_merge($errors, $nestedErrors);
                         }
                     }
+                }
+                continue;
+            }
+
+            if ($instance instanceof ConstraintInterface) {
+                if (!$this->matchesGroups($instance, $activeGroups)) {
+                    continue;
+                }
+
+                $validatorClass = $instance->validatedBy();
+                $validator = $this->validatorResolver !== null
+                    ? $this->validatorResolver->resolve($validatorClass)
+                    : new $validatorClass();
+
+                $error = $validator->validate($value, $instance, $object);
+                if ($error !== null) {
+                    $errors[$fullPath] = $error;
+                    break;
                 }
                 continue;
             }

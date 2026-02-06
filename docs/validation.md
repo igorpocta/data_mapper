@@ -454,3 +454,242 @@ class User
     public string $email;
 }
 ```
+
+## Custom Validators with Dependency Injection
+
+For validators that need external dependencies (repositories, API clients, services), use the `ConstraintInterface` + `ConstraintValidatorInterface` pattern. This separates the attribute (constraint) from the validation logic (validator class), allowing the validator to be resolved from a DI container.
+
+### 1. Define the Constraint Attribute
+
+```php
+use Attribute;
+use Pocta\DataMapper\Validation\ConstraintInterface;
+
+#[Attribute(Attribute::TARGET_PROPERTY)]
+class ValidRegistrationNumber implements ConstraintInterface
+{
+    /** @param array<string> $groups */
+    public function __construct(
+        public readonly array $groups = ['Default'],
+    ) {}
+
+    public function validatedBy(): string
+    {
+        return RegistrationNumberValidator::class;
+    }
+
+    public function validate(mixed $value, string $propertyName): ?string
+    {
+        return null; // Handled by validatedBy() class
+    }
+}
+```
+
+### 2. Implement the Validator
+
+The validator class receives the value, the constraint instance (for accessing parameters), and the entire object (for cross-field validation):
+
+```php
+use Pocta\DataMapper\Validation\ConstraintValidatorInterface;
+
+class RegistrationNumberValidator implements ConstraintValidatorInterface
+{
+    public function __construct(
+        private readonly AgentRepository $agentRepository,
+        private readonly CurrentUser $currentUser,
+    ) {}
+
+    public function validate(mixed $value, object $constraint, object $object): ?string
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        $agent = $this->agentRepository->findByRegistrationNumber($value);
+
+        if ($agent !== null) {
+            return null;
+        }
+
+        return "Registration number \"{$value}\" does not exist.";
+    }
+}
+```
+
+### 3. Implement the Resolver
+
+The resolver bridges the library with your DI container. Implement `ValidatorResolverInterface`:
+
+**Nette DI:**
+```php
+use Nette\DI\Container;
+use Pocta\DataMapper\Validation\ConstraintValidatorInterface;
+use Pocta\DataMapper\Validation\ValidatorResolverInterface;
+
+class NetteValidatorResolver implements ValidatorResolverInterface
+{
+    public function __construct(
+        private readonly Container $container,
+    ) {}
+
+    public function resolve(string $validatorClass): ConstraintValidatorInterface
+    {
+        return $this->container->getByType($validatorClass);
+    }
+}
+```
+
+**Symfony DI:**
+```php
+use Psr\Container\ContainerInterface;
+use Pocta\DataMapper\Validation\ConstraintValidatorInterface;
+use Pocta\DataMapper\Validation\ValidatorResolverInterface;
+
+class SymfonyValidatorResolver implements ValidatorResolverInterface
+{
+    public function __construct(
+        private readonly ContainerInterface $container,
+    ) {}
+
+    public function resolve(string $validatorClass): ConstraintValidatorInterface
+    {
+        return $this->container->get($validatorClass);
+    }
+}
+```
+
+**Laravel DI:**
+```php
+use Illuminate\Contracts\Container\Container;
+use Pocta\DataMapper\Validation\ConstraintValidatorInterface;
+use Pocta\DataMapper\Validation\ValidatorResolverInterface;
+
+class LaravelValidatorResolver implements ValidatorResolverInterface
+{
+    public function __construct(
+        private readonly Container $container,
+    ) {}
+
+    public function resolve(string $validatorClass): ConstraintValidatorInterface
+    {
+        return $this->container->make($validatorClass);
+    }
+}
+```
+
+### 4. Wire It Together
+
+Pass the resolver to the `Validator`:
+
+```php
+$resolver = new NetteValidatorResolver($container);
+$validator = new Validator(validatorResolver: $resolver);
+
+$errors = $validator->validate($dto, throw: false);
+```
+
+Or with `Mapper` auto-validation:
+
+```php
+$resolver = new NetteValidatorResolver($container);
+$validator = new Validator(validatorResolver: $resolver);
+
+$mapper = new Mapper(
+    autoValidate: true,
+    validator: $validator,
+);
+```
+
+Without a resolver, validators are instantiated directly (`new $validatorClass()`), which works for validators without dependencies.
+
+### 5. Use in DTOs
+
+```php
+class SubmitLeadRequest
+{
+    #[NotBlank]
+    public string $name;
+
+    #[Length(exact: 6, groups: ['checkRecipient'])]
+    #[ValidRegistrationNumber(groups: ['checkRecipient'])]
+    public ?string $recipientCode = null;
+}
+```
+
+### Cross-field Validation
+
+The validator receives the entire object, so you can access other properties:
+
+```php
+#[Attribute(Attribute::TARGET_PROPERTY)]
+class PasswordMatch implements ConstraintInterface
+{
+    public readonly array $groups;
+
+    public function __construct(array $groups = ['Default'])
+    {
+        $this->groups = $groups;
+    }
+
+    public function validatedBy(): string
+    {
+        return PasswordMatchValidator::class;
+    }
+
+    public function validate(mixed $value, string $propertyName): ?string
+    {
+        return null;
+    }
+}
+
+class PasswordMatchValidator implements ConstraintValidatorInterface
+{
+    public function validate(mixed $value, object $constraint, object $object): ?string
+    {
+        if ($value === $object->password) {
+            return null;
+        }
+
+        return 'Passwords do not match.';
+    }
+}
+
+class ChangePasswordRequest
+{
+    #[NotBlank]
+    public string $password;
+
+    #[PasswordMatch]
+    public string $passwordConfirm;
+}
+```
+
+### Accessing Constraint Parameters
+
+The constraint instance is passed to the validator, so you can define custom parameters on the attribute:
+
+```php
+#[Attribute(Attribute::TARGET_PROPERTY)]
+class MaxValue implements ConstraintInterface
+{
+    public function __construct(
+        public readonly int $max = 100,
+        public readonly array $groups = ['Default'],
+    ) {}
+
+    public function validatedBy(): string { return MaxValueValidator::class; }
+    public function validate(mixed $value, string $propertyName): ?string { return null; }
+}
+
+class MaxValueValidator implements ConstraintValidatorInterface
+{
+    public function validate(mixed $value, object $constraint, object $object): ?string
+    {
+        if ($constraint instanceof MaxValue && is_int($value) && $value > $constraint->max) {
+            return "Value must be at most {$constraint->max}.";
+        }
+
+        return null;
+    }
+}
+```
