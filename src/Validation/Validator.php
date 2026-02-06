@@ -18,12 +18,14 @@ class Validator
      *
      * @param object $object Object to validate
      * @param bool $throw Whether to throw exception on validation failure
+     * @param array<string>|null $groups Validation groups to apply (null = auto-detect)
      * @return array<string, string> Array of property path => error message (empty if valid)
      * @throws ValidationException If validation fails and $throw = true
      */
-    public function validate(object $object, bool $throw = true): array
+    public function validate(object $object, bool $throw = true, ?array $groups = null): array
     {
-        $errors = $this->validateObject($object, '');
+        $activeGroups = $this->resolveGroups($object, $groups);
+        $errors = $this->validateObject($object, '', $activeGroups);
 
         if (!empty($errors) && $throw) {
             throw new ValidationException($errors);
@@ -52,19 +54,40 @@ class Validator
     }
 
     /**
+     * Resolve which validation groups to use
+     *
+     * @param object $object Object being validated
+     * @param array<string>|null $groups Explicitly provided groups
+     * @return array<string> Active groups
+     */
+    private function resolveGroups(object $object, ?array $groups): array
+    {
+        if ($groups !== null) {
+            return $groups;
+        }
+
+        if ($object instanceof GroupSequenceProviderInterface) {
+            return $object->getGroupSequence();
+        }
+
+        return ['Default'];
+    }
+
+    /**
      * Validate an object and return errors with path prefixes
      *
      * @param object $object Object to validate
      * @param string $pathPrefix Path prefix for nested error keys
+     * @param array<string> $activeGroups Active validation groups
      * @return array<string, string> Flat array of path => error message
      */
-    private function validateObject(object $object, string $pathPrefix): array
+    private function validateObject(object $object, string $pathPrefix, array $activeGroups): array
     {
         $reflection = new ReflectionClass($object);
         $errors = [];
 
         foreach ($reflection->getProperties() as $property) {
-            $propertyErrors = $this->validateProperty($property, $object, $pathPrefix);
+            $propertyErrors = $this->validateProperty($property, $object, $pathPrefix, $activeGroups);
             $errors = array_merge($errors, $propertyErrors);
         }
 
@@ -74,9 +97,10 @@ class Validator
     /**
      * Validate a single property
      *
+     * @param array<string> $activeGroups Active validation groups
      * @return array<string, string> Array of path => error message
      */
-    private function validateProperty(ReflectionProperty $property, object $object, string $pathPrefix): array
+    private function validateProperty(ReflectionProperty $property, object $object, string $pathPrefix, array $activeGroups): array
     {
         $errors = [];
         $property->setAccessible(true);
@@ -94,16 +118,21 @@ class Validator
             $instance = $attribute->newInstance();
 
             if ($instance instanceof Valid) {
+                // Check groups on the Valid attribute itself
+                if (!$this->matchesGroups($instance, $activeGroups)) {
+                    continue;
+                }
+
                 // Recursive validation of nested object
                 if (is_object($value)) {
-                    $nestedErrors = $this->validateObject($value, $fullPath);
+                    $nestedErrors = $this->validateObject($value, $fullPath, $activeGroups);
                     $errors = array_merge($errors, $nestedErrors);
                 }
                 // Recursive validation of array of objects
                 if (is_array($value)) {
                     foreach ($value as $index => $item) {
                         if (is_object($item)) {
-                            $nestedErrors = $this->validateObject($item, $fullPath . '[' . $index . ']');
+                            $nestedErrors = $this->validateObject($item, $fullPath . '[' . $index . ']', $activeGroups);
                             $errors = array_merge($errors, $nestedErrors);
                         }
                     }
@@ -112,14 +141,39 @@ class Validator
             }
 
             if ($instance instanceof AssertInterface) {
+                // Check groups filtering
+                if (!$this->matchesGroups($instance, $activeGroups)) {
+                    continue;
+                }
+
                 $error = $instance->validate($value, $propertyName);
                 if ($error !== null) {
                     $errors[$fullPath] = $error;
-                    break; // Take first error per property (consistent with original behavior)
+                    break; // Take first error per property
                 }
             }
         }
 
         return $errors;
+    }
+
+    /**
+     * Check if a constraint's groups match the active groups
+     *
+     * @param object $constraint The constraint instance
+     * @param array<string> $activeGroups Active validation groups
+     * @return bool True if the constraint should be applied
+     */
+    private function matchesGroups(object $constraint, array $activeGroups): bool
+    {
+        if (!property_exists($constraint, 'groups')) {
+            // Constraints without groups property are always applied
+            return true;
+        }
+
+        /** @var array<string> $constraintGroups */
+        $constraintGroups = $constraint->groups;
+
+        return !empty(array_intersect($constraintGroups, $activeGroups));
     }
 }
