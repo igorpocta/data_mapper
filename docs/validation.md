@@ -1,0 +1,456 @@
+# Validation System
+
+[← Back to README](../README.md)
+
+The Validation System provides declarative validation using Assert attributes directly on properties.
+
+## Auto-validation
+
+Automatic validation after denormalization:
+
+```php
+use Pocta\DataMapper\Validation\NotNull;
+use Pocta\DataMapper\Validation\Range;
+use Pocta\DataMapper\Validation\Email;
+
+class User
+{
+    #[NotNull]
+    #[Range(min: 1)]
+    public int $id;
+
+    #[NotNull]
+    #[Email]
+    public string $email;
+
+    #[Range(min: 18, max: 120)]
+    public int $age;
+}
+
+// Auto-validation enabled
+$mapper = new Mapper(autoValidate: true);
+
+try {
+    $user = $mapper->fromArray(['id' => 0, 'email' => 'invalid'], User::class);
+} catch (ValidationException $e) {
+    $errors = $e->getErrors();
+    // ['id' => "must be at least 1", 'email' => "must be valid email"]
+}
+```
+
+## Strict Mode
+
+Strict mode validates that input data contains only known keys defined in the target class. When enabled, any unknown keys will cause a `ValidationException`.
+
+```php
+// Enable strict mode in constructor
+$mapper = new Mapper(strictMode: true);
+
+class User
+{
+    public function __construct(
+        public int $id,
+        public string $name
+    ) {}
+}
+
+// This will throw ValidationException because 'unknown_field' is not defined in User
+try {
+    $data = ['id' => 1, 'name' => 'John', 'unknown_field' => 'value'];
+    $user = $mapper->fromArray($data, User::class);
+} catch (ValidationException $e) {
+    $errors = $e->getErrors();
+    // ['unknown_field' => "Unknown key 'unknown_field' at path 'unknown_field' is not allowed in strict mode"]
+}
+
+// Works fine - all keys are known
+$data = ['id' => 1, 'name' => 'John'];
+$user = $mapper->fromArray($data, User::class); // OK
+
+// Dynamic control
+$mapper->setStrictMode(false); // Disable
+$mapper->setStrictMode(true);  // Enable
+
+if ($mapper->isStrictMode()) {
+    // Strict mode is enabled
+}
+```
+
+**Benefits:**
+- Catches typos in input data keys
+- Prevents accidental data leakage
+- Ensures API contracts are strictly followed
+- Useful for debugging and development
+
+**Note:** By default, strict mode is disabled (`false`) to maintain backward compatibility.
+
+## Manual Validation
+
+```php
+$mapper = new Mapper(); // autoValidate = false
+
+$user = $mapper->fromArray($data, User::class);
+
+// Validation without exception
+$errors = $mapper->validate($user, throw: false);
+if (!empty($errors)) {
+    // Handle errors
+}
+
+// Validation with exception
+try {
+    $mapper->validate($user);
+} catch (ValidationException $e) {
+    // Handle validation errors
+}
+```
+
+## Error Messages with Nested Paths
+
+When validating nested objects and arrays of objects, error messages contain the full path to the erroneous field:
+
+```php
+class Address
+{
+    public function __construct(
+        public string $street,
+        public string $city,
+        public string $country,
+        public string $postalCode
+    ) {}
+}
+
+class User
+{
+    public function __construct(
+        public int $id,
+        public string $name,
+        #[MapProperty(arrayOf: Address::class)]
+        public array $addresses
+    ) {}
+}
+
+$data = [
+    'id' => 1,
+    'name' => 'John Doe',
+    'addresses' => [
+        [
+            'street' => '123 Main St',
+            'city' => 'New York',
+            'country' => 'US',
+            'postalCode' => '10001'
+        ],
+        [
+            'street' => '456 Oak Ave',
+            'city' => 'Los Angeles',
+            // Missing 'country'!
+            'postalCode' => '90001'
+        ]
+    ]
+];
+
+try {
+    $user = $mapper->fromArray($data, User::class);
+} catch (ValidationException $e) {
+    $errors = $e->getErrors();
+    // ['addresses[1].country' => "Missing required parameter 'country' at path 'addresses[1].country'"]
+
+    // You can see exactly that the problem is in the second address (index 1), in the 'country' field
+}
+```
+
+## Export to API Response Format
+
+`ValidationException` provides a `toApiResponse()` method for structured JSON output:
+
+```php
+try {
+    $user = $mapper->fromArray($data, User::class);
+} catch (ValidationException $e) {
+    // Export to structured format
+    $response = $e->toApiResponse();
+
+    // Result:
+    // [
+    //     'message' => 'Invalid request data',
+    //     'code' => 422,
+    //     'context' => [
+    //         'validation' => [
+    //             'addresses[1].country' => [
+    //                 "Missing required parameter 'country' at path 'addresses[1].country'"
+    //             ]
+    //         ]
+    //     ]
+    // ]
+
+    // Custom message and code
+    $response = $e->toApiResponse('Validation failed', 400);
+
+    // For API response
+    return response()->json($response, $response['code']);
+}
+```
+
+Benefits of this format:
+- **Full paths**: `addresses[1].country` instead of just `country` - you know exactly where the problem is
+- **Structured output**: Consistent format for all API responses
+- **All errors at once**: Get all validation errors in one response
+- **Array values**: Each field has an array of error messages, allowing multiple errors per field
+
+## Available Validators
+
+### NotNull
+```php
+#[NotNull]
+#[NotNull(message: 'Custom error message')]
+public ?string $name;
+```
+
+### Range
+```php
+#[Range(min: 0, max: 100)]
+#[Range(min: 18)] // Only minimum
+#[Range(max: 65)] // Only maximum
+public int $age;
+```
+
+### Length
+```php
+#[Length(min: 3, max: 50)]
+#[Length(exact: 10)] // Exactly 10 characters
+public string $username;
+```
+
+### Email
+```php
+#[Email]
+#[Email(message: 'Please enter valid email')]
+public string $email;
+```
+
+### Pattern (Regex)
+```php
+#[Pattern(pattern: '/^[A-Z]{3}\d{3}$/')]
+#[Pattern(pattern: '/^\+\d{1,3}\s\d+$/', message: 'Invalid phone format')]
+public string $code;
+```
+
+### Positive
+```php
+#[Positive]
+public int|float $amount;
+```
+
+### Url
+```php
+#[Url]
+public string $website;
+```
+
+### Uuid
+```php
+#[Uuid]
+public string $id;
+// Validates: "550e8400-e29b-41d4-a716-446655440000"
+
+#[Uuid(version: 4)]
+public string $uuid;
+// Only accepts UUID v4
+```
+
+### Iban
+```php
+#[Iban]
+public string $bankAccount;
+// Validates: "DE89370400440532013000"
+// Also accepts with spaces: "DE89 3704 0044 0532 0130 00"
+```
+
+### CreditCard
+```php
+#[CreditCard]
+public string $cardNumber;
+// Validates using Luhn algorithm
+
+#[CreditCard(types: ['visa', 'mastercard'])]
+public string $card;
+// Only allows specific card types: visa, mastercard, amex, discover, diners, jcb
+```
+
+### Regex
+```php
+#[Regex('/^[A-Z]{3}$/')]
+public string $code;
+// Must be exactly 3 uppercase letters
+
+#[Regex('/^\d{6}$/', message: 'Postal code must be 6 digits')]
+public string $postalCode;
+```
+
+### MacAddress
+```php
+#[MacAddress]
+public string $macAddress;
+// Supports multiple formats:
+// - Colon: "00:1A:2B:3C:4D:5E"
+// - Dash: "00-1A-2B-3C-4D-5E"
+// - Dot: "001A.2B3C.4D5E"
+// - No separator: "001A2B3C4D5E"
+```
+
+### Count
+```php
+#[Count(min: 1)]              // At least 1 element
+#[Count(max: 5)]              // At most 5 elements
+#[Count(min: 1, max: 10)]     // Between 1 and 10
+#[Count(exactly: 3)]          // Exactly 3 elements
+public array $items;
+```
+
+### Valid (Recursive Validation)
+```php
+use Pocta\DataMapper\Validation\Valid;
+
+class OrderRequest
+{
+    #[NotBlank]
+    public string $orderNumber;
+
+    #[Valid]
+    public AddressDTO $shippingAddress;
+
+    /** @var array<ItemDTO> */
+    #[Valid]
+    public array $items = [];
+}
+
+// Errors use dot-notation paths:
+// 'shippingAddress.city' => "Property 'city' must not be blank"
+// 'items[0].quantity' => "Property 'quantity' must be at least 1"
+```
+
+### Other Validators
+- `Blank` - Must be empty string or null
+- `NotBlank` - Must not be empty/blank
+- `IsTrue` / `IsFalse` - Must be exactly true/false
+- `IsNull` - Must be null
+- `Type` - Must be of specific type
+- `Json` - Must be valid JSON string
+- `Hostname` - Must be valid hostname
+- `Ip` - Must be valid IP address (supports V4/V6)
+- Comparison validators: `EqualTo`, `NotEqualTo`, `IdenticalTo`, `GreaterThan`, `GreaterThanOrEqual`, `LessThan`, `LessThanOrEqual`
+- Number validators: `Negative`, `NegativeOrZero`, `PositiveOrZero`, `DivisibleBy`
+- Date/Time validators: `Date`, `DateTime`, `Time`, `Timezone`, `Week`
+- `Choice` - Value must be one of allowed choices
+- `Callback` - Custom validation function (on properties or methods)
+
+## Callback on Methods
+
+`#[Callback]` can be placed on class methods for cross-field validation. The method must be public, take no parameters, and return `array<string, string>` (field path => error) or `null`.
+
+```php
+class OrderRequest
+{
+    public bool $hasBlueAgreement = false;
+    public bool $hasGoldAgreement = false;
+
+    #[Callback]
+    public function validateAgreements(): array
+    {
+        if (!$this->hasBlueAgreement && !$this->hasGoldAgreement) {
+            return ['hasBlueAgreement' => 'You must select at least one agreement.'];
+        }
+        return [];
+    }
+}
+```
+
+## Validation Groups
+
+Validation groups allow conditional validation — different rules based on context. All validators accept an optional `groups` parameter (default: `['Default']`).
+
+```php
+use Pocta\DataMapper\Validation\GroupSequenceProviderInterface;
+use Pocta\DataMapper\Validation\NotBlank;
+
+class ClientRequest implements GroupSequenceProviderInterface
+{
+    #[NotBlank] // Always validated (Default group)
+    public string $entityType;
+
+    #[NotBlank(groups: ['NaturalPerson'])]
+    public ?string $firstName = null;
+
+    #[NotBlank(groups: ['LegalEntity'])]
+    public ?string $companyName = null;
+
+    public function getGroupSequence(): array
+    {
+        return $this->entityType === 'legal_entity'
+            ? ['Default', 'LegalEntity']
+            : ['Default', 'NaturalPerson'];
+    }
+}
+
+// Auto-detection via GroupSequenceProviderInterface
+$validator = new Validator();
+$errors = $validator->validate($client, throw: false);
+
+// Explicit groups
+$errors = $validator->validate($client, throw: false, groups: ['LegalEntity']);
+```
+
+## Combining Validators
+
+You can combine multiple validators:
+
+```php
+class Product
+{
+    #[NotNull]
+    #[Length(min: 3, max: 100)]
+    public string $name;
+
+    #[NotNull]
+    #[Positive]
+    #[Range(max: 1000000)]
+    public float $price;
+}
+```
+
+## Custom Validator
+
+```php
+use Pocta\DataMapper\Validation\AssertInterface;
+use Attribute;
+
+#[Attribute(Attribute::TARGET_PROPERTY | Attribute::TARGET_PARAMETER)]
+class UniqueEmail implements AssertInterface
+{
+    public function validate(mixed $value, string $propertyName): ?string
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        if (!is_string($value)) {
+            return "Must be string";
+        }
+
+        // Custom logic
+        if (User::where('email', $value)->exists()) {
+            return "Email {$value} is already taken";
+        }
+
+        return null; // Valid
+    }
+}
+
+// Usage
+class User
+{
+    #[Email]
+    #[UniqueEmail]
+    public string $email;
+}
+```
