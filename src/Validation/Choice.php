@@ -20,7 +20,9 @@ class Choice implements AssertInterface
     public function __construct(
         public readonly array $choices,
         public readonly bool $strict = true,
-        public readonly ?string $message = null
+        public readonly ?string $message = null,
+        /** @var array<string> */
+        public readonly array $groups = ['Default'],
     ) {
     }
 

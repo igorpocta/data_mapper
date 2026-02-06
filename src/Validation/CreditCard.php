@@ -29,7 +29,9 @@ class CreditCard implements AssertInterface
      */
     public function __construct(
         ?array $types = null,
-        public readonly string $message = 'Value must be a valid credit card number'
+        public readonly string $message = 'Value must be a valid credit card number',
+        /** @var array<string> */
+        public readonly array $groups = ['Default'],
     ) {
         $this->types = $types;
     }

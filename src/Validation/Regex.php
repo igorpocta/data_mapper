@@ -22,7 +22,9 @@ class Regex implements AssertInterface
 {
     public function __construct(
         public readonly string $pattern,
-        public readonly string $message = 'Value does not match the required pattern'
+        public readonly string $message = 'Value does not match the required pattern',
+        /** @var array<string> */
+        public readonly array $groups = ['Default'],
     ) {
     }
 

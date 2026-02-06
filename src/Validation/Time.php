@@ -14,7 +14,9 @@ use DateTime as PHPDateTime;
 class Time implements AssertInterface
 {
     public function __construct(
-        public readonly ?string $message = null
+        public readonly ?string $message = null,
+        /** @var array<string> */
+        public readonly array $groups = ['Default'],
     ) {
     }
 

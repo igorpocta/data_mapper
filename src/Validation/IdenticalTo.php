@@ -14,7 +14,9 @@ class IdenticalTo implements AssertInterface
 {
     public function __construct(
         public readonly mixed $value,
-        public readonly ?string $message = null
+        public readonly ?string $message = null,
+        /** @var array<string> */
+        public readonly array $groups = ['Default'],
     ) {
     }
 

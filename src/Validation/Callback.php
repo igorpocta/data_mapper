@@ -24,7 +24,9 @@ class Callback implements AssertInterface
      */
     public function __construct(
         public readonly mixed $callback,
-        public readonly ?string $message = null
+        public readonly ?string $message = null,
+        /** @var array<string> */
+        public readonly array $groups = ['Default'],
     ) {
     }
 

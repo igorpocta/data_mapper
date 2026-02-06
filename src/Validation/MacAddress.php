@@ -18,7 +18,9 @@ use Attribute;
 class MacAddress implements AssertInterface
 {
     public function __construct(
-        public readonly string $message = 'Value must be a valid MAC address'
+        public readonly string $message = 'Value must be a valid MAC address',
+        /** @var array<string> */
+        public readonly array $groups = ['Default'],
     ) {
     }
 

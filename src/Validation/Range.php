@@ -15,7 +15,9 @@ class Range implements AssertInterface
     public function __construct(
         public readonly int|float|null $min = null,
         public readonly int|float|null $max = null,
-        public readonly ?string $message = null
+        public readonly ?string $message = null,
+        /** @var array<string> */
+        public readonly array $groups = ['Default'],
     ) {
     }
 

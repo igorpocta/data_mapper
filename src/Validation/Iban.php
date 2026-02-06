@@ -17,7 +17,9 @@ use Attribute;
 class Iban implements AssertInterface
 {
     public function __construct(
-        public readonly string $message = 'Value must be a valid IBAN'
+        public readonly string $message = 'Value must be a valid IBAN',
+        /** @var array<string> */
+        public readonly array $groups = ['Default'],
     ) {
     }
 

@@ -22,7 +22,9 @@ class Uuid implements AssertInterface
 {
     public function __construct(
         public readonly ?int $version = null,
-        public readonly string $message = 'Value must be a valid UUID'
+        public readonly string $message = 'Value must be a valid UUID',
+        /** @var array<string> */
+        public readonly array $groups = ['Default'],
     ) {
         if ($version !== null && !in_array($version, [1, 3, 4, 5], true)) {
             throw new \InvalidArgumentException('UUID version must be 1, 3, 4, or 5');

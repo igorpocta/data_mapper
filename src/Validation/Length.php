@@ -16,7 +16,9 @@ class Length implements AssertInterface
         public readonly ?int $min = null,
         public readonly ?int $max = null,
         public readonly ?int $exact = null,
-        public readonly ?string $message = null
+        public readonly ?string $message = null,
+        /** @var array<string> */
+        public readonly array $groups = ['Default'],
     ) {
     }
 
