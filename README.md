@@ -3,7 +3,7 @@
 [![CI](https://github.com/igorpocta/data_mapper/actions/workflows/ci.yml/badge.svg)](https://github.com/igorpocta/data-mapper/actions/workflows/ci.yml)
 [![PHP Version](https://img.shields.io/badge/PHP-8.1%2B-blue)](https://php.net)
 [![PHPStan Level](https://img.shields.io/badge/PHPStan-level%209-brightgreen)](https://phpstan.org)
-[![Tests](https://img.shields.io/badge/tests-514%20passing-success)](.)
+[![Tests](https://img.shields.io/badge/tests-525%20passing-success)](.)
 
 High-performance and type-safe PHP library for bidirectional data mapping between JSON/arrays/CSV and objects. Supports constructors, nullable types, enums, DateTime, nested objects, discriminator mapping for polymorphism, CSV import/export, filters, and much more.
 
@@ -2306,7 +2306,28 @@ class OrderRequest
 - Number validators: `Negative`, `NegativeOrZero`, `PositiveOrZero`, `DivisibleBy`
 - Date/Time validators: `Date`, `DateTime`, `Time`, `Timezone`, `Week`
 - `Choice` - Value must be one of allowed choices
-- `Callback` - Custom validation function
+- `Callback` - Custom validation function (on properties or methods)
+
+### Callback on Methods
+
+`#[Callback]` can be placed on class methods for cross-field validation. The method must be public, take no parameters, and return `array<string, string>` (field path => error) or `null`.
+
+```php
+class OrderRequest
+{
+    public bool $hasBlueAgreement = false;
+    public bool $hasGoldAgreement = false;
+
+    #[Callback]
+    public function validateAgreements(): array
+    {
+        if (!$this->hasBlueAgreement && !$this->hasGoldAgreement) {
+            return ['hasBlueAgreement' => 'You must select at least one agreement.'];
+        }
+        return [];
+    }
+}
+```
 
 ### Validation Groups
 
