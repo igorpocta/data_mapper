@@ -6,6 +6,7 @@ namespace Pocta\DataMapper\Validation;
 
 use Pocta\DataMapper\Exceptions\ValidationException;
 use ReflectionClass;
+use ReflectionMethod;
 use ReflectionProperty;
 
 /**
@@ -91,6 +92,12 @@ class Validator
             $errors = array_merge($errors, $propertyErrors);
         }
 
+        // Validate methods with #[Callback] attribute
+        foreach ($reflection->getMethods(ReflectionMethod::IS_PUBLIC) as $method) {
+            $methodErrors = $this->validateCallbackMethod($method, $object, $pathPrefix, $activeGroups);
+            $errors = array_merge($errors, $methodErrors);
+        }
+
         return $errors;
     }
 
@@ -150,6 +157,42 @@ class Validator
                 if ($error !== null) {
                     $errors[$fullPath] = $error;
                     break; // Take first error per property
+                }
+            }
+        }
+
+        return $errors;
+    }
+
+    /**
+     * Validate a method with #[Callback] attribute
+     *
+     * @param array<string> $activeGroups Active validation groups
+     * @return array<string, string> Array of path => error message
+     */
+    private function validateCallbackMethod(ReflectionMethod $method, object $object, string $pathPrefix, array $activeGroups): array
+    {
+        $errors = [];
+
+        foreach ($method->getAttributes(Callback::class) as $attribute) {
+            $instance = $attribute->newInstance();
+
+            if (!$this->matchesGroups($instance, $activeGroups)) {
+                continue;
+            }
+
+            /** @var mixed $result */
+            $result = $method->invoke($object);
+
+            if ($result === null || $result === []) {
+                continue;
+            }
+
+            if (is_array($result)) {
+                /** @var array<string, string> $result */
+                foreach ($result as $key => $message) {
+                    $fullPath = $pathPrefix !== '' ? $pathPrefix . '.' . $key : $key;
+                    $errors[$fullPath] = $message;
                 }
             }
         }
