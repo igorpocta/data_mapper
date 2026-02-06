@@ -3,7 +3,7 @@
 [![CI](https://github.com/igorpocta/data_mapper/actions/workflows/ci.yml/badge.svg)](https://github.com/igorpocta/data-mapper/actions/workflows/ci.yml)
 [![PHP Version](https://img.shields.io/badge/PHP-8.1%2B-blue)](https://php.net)
 [![PHPStan Level](https://img.shields.io/badge/PHPStan-level%209-brightgreen)](https://phpstan.org)
-[![Tests](https://img.shields.io/badge/tests-470%20passing-success)](.)
+[![Tests](https://img.shields.io/badge/tests-514%20passing-success)](.)
 
 High-performance and type-safe PHP library for bidirectional data mapping between JSON/arrays/CSV and objects. Supports constructors, nullable types, enums, DateTime, nested objects, discriminator mapping for polymorphism, CSV import/export, filters, and much more.
 
@@ -60,8 +60,10 @@ composer require igorpocta/data-mapper
 - **Filters**: 70+ built-in filters for data transformation including security (masking, hashing), formatting (money, numbers), case conversion (camelCase, snake_case, kebab-case), and more
 - **Hydration**: Custom functions for data transformation using `MapPropertyWithFunction`
 - **Event System**: Hooks for pre/post processing (logging, transformations, error handling)
-- **Validation**: 30+ Assert attributes (NotNull, Range, Email, Choice, Callback, Type, IsTrue, Ip, etc.)
+- **Validation**: 40+ Assert attributes (NotNull, Range, Email, Count, Valid, Choice, Callback, Type, IsTrue, Ip, etc.)
 - **Auto-validation**: Automatic object validation after denormalization
+- **Validation Groups**: Conditional validation with `GroupSequenceProviderInterface`
+- **Recursive Validation**: `#[Valid]` for nested objects with dot-notation error paths
 - **Strict mode**: Validates that input contains only known keys, preventing unknown data
 - **Flexible architecture**: Normalizer and Denormalizer as separate components
 
@@ -2260,6 +2262,37 @@ public string $macAddress;
 // - No separator: "001A2B3C4D5E"
 ```
 
+#### Count
+```php
+#[Count(min: 1)]              // At least 1 element
+#[Count(max: 5)]              // At most 5 elements
+#[Count(min: 1, max: 10)]     // Between 1 and 10
+#[Count(exactly: 3)]          // Exactly 3 elements
+public array $items;
+```
+
+#### Valid (Recursive Validation)
+```php
+use Pocta\DataMapper\Validation\Valid;
+
+class OrderRequest
+{
+    #[NotBlank]
+    public string $orderNumber;
+
+    #[Valid]
+    public AddressDTO $shippingAddress;
+
+    /** @var array<ItemDTO> */
+    #[Valid]
+    public array $items = [];
+}
+
+// Errors use dot-notation paths:
+// 'shippingAddress.city' => "Property 'city' must not be blank"
+// 'items[0].quantity' => "Property 'quantity' must be at least 1"
+```
+
 #### Other Validators
 - `Blank` - Must be empty string or null
 - `NotBlank` - Must not be empty/blank
@@ -2274,6 +2307,41 @@ public string $macAddress;
 - Date/Time validators: `Date`, `DateTime`, `Time`, `Timezone`, `Week`
 - `Choice` - Value must be one of allowed choices
 - `Callback` - Custom validation function
+
+### Validation Groups
+
+Validation groups allow conditional validation — different rules based on context. All validators accept an optional `groups` parameter (default: `['Default']`).
+
+```php
+use Pocta\DataMapper\Validation\GroupSequenceProviderInterface;
+use Pocta\DataMapper\Validation\NotBlank;
+
+class ClientRequest implements GroupSequenceProviderInterface
+{
+    #[NotBlank] // Always validated (Default group)
+    public string $entityType;
+
+    #[NotBlank(groups: ['NaturalPerson'])]
+    public ?string $firstName = null;
+
+    #[NotBlank(groups: ['LegalEntity'])]
+    public ?string $companyName = null;
+
+    public function getGroupSequence(): array
+    {
+        return $this->entityType === 'legal_entity'
+            ? ['Default', 'LegalEntity']
+            : ['Default', 'NaturalPerson'];
+    }
+}
+
+// Auto-detection via GroupSequenceProviderInterface
+$validator = new Validator();
+$errors = $validator->validate($client, throw: false);
+
+// Explicit groups
+$errors = $validator->validate($client, throw: false, groups: ['LegalEntity']);
+```
 
 ### Combining Validators
 
