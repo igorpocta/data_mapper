@@ -220,6 +220,7 @@ class ValidParentWithArrayDTO
     #[NotBlank]
     public string $title = '';
 
+    /** @var array<ValidChildDTO> */
     #[Valid]
     #[MapProperty(type: PropertyType::Array, arrayOf: ValidChildDTO::class)]
     public array $children = [];

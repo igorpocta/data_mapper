@@ -112,6 +112,9 @@ class CountValidationTest extends TestCase
 
 class CountMinTestDTO
 {
+    /**
+     * @param array<mixed> $items
+     */
     public function __construct(
         #[Count(min: 1)]
         public array $items = [],
@@ -120,6 +123,9 @@ class CountMinTestDTO
 
 class CountMaxTestDTO
 {
+    /**
+     * @param array<mixed> $items
+     */
     public function __construct(
         #[Count(max: 3)]
         public array $items = [],
@@ -128,6 +134,9 @@ class CountMaxTestDTO
 
 class CountExactlyTestDTO
 {
+    /**
+     * @param array<mixed> $items
+     */
     public function __construct(
         #[Count(exactly: 3)]
         public array $items = [],
@@ -136,6 +145,9 @@ class CountExactlyTestDTO
 
 class CountMinMaxTestDTO
 {
+    /**
+     * @param array<mixed> $items
+     */
     public function __construct(
         #[Count(min: 1, max: 3)]
         public array $items = [],
@@ -144,6 +156,9 @@ class CountMinMaxTestDTO
 
 class CountNullableTestDTO
 {
+    /**
+     * @param array<mixed>|null $items
+     */
     public function __construct(
         #[Count(min: 1)]
         public ?array $items = null,
@@ -152,6 +167,9 @@ class CountNullableTestDTO
 
 class CountCustomMessageTestDTO
 {
+    /**
+     * @param array<mixed> $items
+     */
     public function __construct(
         #[Count(max: 3, message: 'Maximum 3 children allowed')]
         public array $items = [],
