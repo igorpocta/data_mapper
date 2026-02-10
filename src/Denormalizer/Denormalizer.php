@@ -401,12 +401,14 @@ class Denormalizer
         $classType = $this->getClassTypeFromProperty($propertyAttributes);
 
         $fullPath = $this->buildFullFieldPath($path ?? $jsonKey);
+        $errorCountBefore = count($this->errors);
         $typedValue = $this->denormalizeValue($value, $typeName, $fullPath, $isNullable, $format, $timezone, $arrayOf, $classType);
         // Apply filters AFTER type denormalization
         $typedValue = $this->applyFiltersToProperty($property, $typedValue);
 
-        // Don't set the value if there was an error during denormalization
-        if (isset($this->errors[$fullPath])) {
+        // Don't set the value if there were any errors during denormalization
+        // (including nested errors stored under deeper paths like "child.status")
+        if (count($this->errors) > $errorCountBefore) {
             return;
         }
 
