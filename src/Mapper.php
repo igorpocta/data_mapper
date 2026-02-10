@@ -18,6 +18,7 @@ use Pocta\DataMapper\Events\PostNormalizeEvent;
 use Pocta\DataMapper\Events\DenormalizationErrorEvent;
 use Pocta\DataMapper\Events\ValidationEvent;
 use Pocta\DataMapper\Validation\Validator;
+use Pocta\DataMapper\Validation\ValidatorResolverInterface;
 use Pocta\DataMapper\Debug\Debugger;
 use Pocta\DataMapper\Debug\Profiler;
 use InvalidArgumentException;
@@ -45,6 +46,7 @@ class Mapper
      * @param TypeResolver|null $typeResolver Custom type resolver instance.
      * @param EventDispatcher|null $eventDispatcher Event dispatcher for hooks (null = creates new one).
      * @param Validator|null $validator Custom validator instance.
+     * @param ValidatorResolverInterface|null $validatorResolver Resolver for constraint validators (e.g. from DI container). Ignored when custom $validator is provided.
      * @param Debugger|null $debugger Debugger for logging operations (null = disabled).
      * @param Profiler|null $profiler Profiler for measuring performance (null = disabled).
      */
@@ -56,6 +58,7 @@ class Mapper
         ?TypeResolver $typeResolver = null,
         ?EventDispatcher $eventDispatcher = null,
         ?Validator $validator = null,
+        ?ValidatorResolverInterface $validatorResolver = null,
         ?Debugger $debugger = null,
         ?Profiler $profiler = null
     ) {
@@ -65,7 +68,7 @@ class Mapper
         $this->typeResolver = $typeResolver ?? new TypeResolver();
         $this->eventDispatcher = $eventDispatcher ?? new EventDispatcher();
         $this->metadataFactory = new ClassMetadataFactory($cache);
-        $this->validator = $validator ?? new Validator();
+        $this->validator = $validator ?? new Validator($validatorResolver);
         $this->autoValidate = $options->autoValidate;
         $this->strictMode = $options->strictMode;
         $this->throwOnMissingData = $options->throwOnMissingData;

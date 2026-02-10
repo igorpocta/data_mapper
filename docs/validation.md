@@ -579,7 +579,18 @@ class LaravelValidatorResolver implements ValidatorResolverInterface
 
 ### 4. Wire It Together
 
-Pass the resolver to the `Validator`:
+Pass the resolver directly to `Mapper`:
+
+```php
+$resolver = new NetteValidatorResolver($container);
+
+$mapper = new Mapper(
+    options: MapperOptions::withAutoValidation(),
+    validatorResolver: $resolver,
+);
+```
+
+Or use the `Validator` standalone:
 
 ```php
 $resolver = new NetteValidatorResolver($container);
@@ -588,19 +599,7 @@ $validator = new Validator(validatorResolver: $resolver);
 $errors = $validator->validate($dto, throw: false);
 ```
 
-Or with `Mapper` auto-validation:
-
-```php
-$resolver = new NetteValidatorResolver($container);
-$validator = new Validator(validatorResolver: $resolver);
-
-$mapper = new Mapper(
-    autoValidate: true,
-    validator: $validator,
-);
-```
-
-Without a resolver, validators are instantiated directly (`new $validatorClass()`), which works for validators without dependencies.
+Without a resolver, validators are instantiated directly (`new $validatorClass()`), which works for validators without constructor dependencies. If a validator requires dependencies and no resolver is configured, an error will be thrown at runtime.
 
 ### 5. Use in DTOs
 

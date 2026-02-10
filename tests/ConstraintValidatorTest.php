@@ -6,6 +6,8 @@ namespace Pocta\DataMapper\Tests;
 
 use Attribute;
 use PHPUnit\Framework\TestCase;
+use Pocta\DataMapper\Mapper;
+use Pocta\DataMapper\MapperOptions;
 use Pocta\DataMapper\Validation\ConstraintInterface;
 use Pocta\DataMapper\Validation\ConstraintValidatorInterface;
 use Pocta\DataMapper\Validation\Length;
@@ -150,6 +152,64 @@ class ConstraintValidatorTest extends TestCase
 
         $errors = $validator->validate($dto, throw: false);
         $this->assertEmpty($errors);
+    }
+
+    public function testMapperWithValidatorResolverParameter(): void
+    {
+        $resolver = new TestValidatorResolver([
+            'DependencyRequiringValidator' => new DependencyRequiringValidator('injected-service'),
+        ]);
+
+        $mapper = new Mapper(
+            options: MapperOptions::withAutoValidation(),
+            validatorResolver: $resolver,
+        );
+
+        $dto = $mapper->fromArray(['code' => 'BAD'], DependencyConstraintDTO::class);
+        // Should not throw - auto-validation passes because 'BAD' is not 'FAIL'
+        $this->assertSame('BAD', $dto->code);
+    }
+
+    public function testMapperWithValidatorResolverReportsErrors(): void
+    {
+        $resolver = new TestValidatorResolver([
+            'DependencyRequiringValidator' => new DependencyRequiringValidator('injected-service'),
+        ]);
+
+        $mapper = new Mapper(
+            options: MapperOptions::withAutoValidation(),
+            validatorResolver: $resolver,
+        );
+
+        $this->expectException(\Pocta\DataMapper\Exceptions\ValidationException::class);
+        $mapper->fromArray(['code' => 'FAIL'], DependencyConstraintDTO::class);
+    }
+
+    public function testMapperCustomValidatorTakesPrecedenceOverResolver(): void
+    {
+        $customValidator = new Validator(); // no resolver
+        $resolver = new TestValidatorResolver([
+            'DependencyRequiringValidator' => new DependencyRequiringValidator('injected-service'),
+        ]);
+
+        // Custom validator should be used, resolver ignored
+        $mapper = new Mapper(
+            validator: $customValidator,
+            validatorResolver: $resolver,
+        );
+
+        $this->assertSame($customValidator, $mapper->getValidator());
+    }
+
+    public function testConstraintValidatorWithoutResolverAndDependenciesThrows(): void
+    {
+        $validator = new Validator(); // no resolver
+
+        $dto = new DependencyConstraintDTO();
+        $dto->code = 'test';
+
+        $this->expectException(\Error::class);
+        $validator->validate($dto, throw: false);
     }
 }
 
@@ -334,6 +394,52 @@ class ParameterizedConstraintDTO
 {
     #[MaxValue(max: 10)]
     public int $value = 0;
+}
+
+// Validator requiring constructor dependency (simulates DI-injected validator)
+
+class DependencyRequiringValidator implements ConstraintValidatorInterface
+{
+    public function __construct(
+        private readonly string $requiredService,
+    ) {
+    }
+
+    public function validate(mixed $value, object $constraint, object $object): ?string
+    {
+        if ($value === 'FAIL') {
+            return "Validation failed (service: {$this->requiredService}).";
+        }
+
+        return null;
+    }
+}
+
+#[Attribute(Attribute::TARGET_PROPERTY)]
+class DependencyConstraint implements ConstraintInterface
+{
+    /** @param array<string> $groups */
+    public function __construct(
+        public readonly array $groups = ['Default'],
+    ) {
+    }
+
+    /** @return class-string<ConstraintValidatorInterface> */
+    public function validatedBy(): string
+    {
+        return DependencyRequiringValidator::class;
+    }
+
+    public function validate(mixed $value, string $propertyName): ?string
+    {
+        return null;
+    }
+}
+
+class DependencyConstraintDTO
+{
+    #[DependencyConstraint]
+    public string $code = '';
 }
 
 // Test resolver
