@@ -115,9 +115,21 @@ class Validator
     private function validateProperty(ReflectionProperty $property, object $object, string $pathPrefix, array $activeGroups): array
     {
         $errors = [];
+
+        if (!empty($property->getAttributes(SkipValidation::class))) {
+            return $errors;
+        }
+
         $property->setAccessible(true);
 
         if (!$property->isInitialized($object)) {
+            if ($this->hasActiveValidationAttributes($property, $activeGroups)) {
+                $fullPath = $pathPrefix !== ''
+                    ? $pathPrefix . '.' . $property->getName()
+                    : $property->getName();
+                $errors[$fullPath] = 'This field is required.';
+            }
+
             return $errors;
         }
 
@@ -241,5 +253,23 @@ class Validator
         $constraintGroups = $constraint->groups;
 
         return !empty(array_intersect($constraintGroups, $activeGroups));
+    }
+
+    /**
+     * Check if a property has any validation attributes matching the active groups
+     *
+     * @param array<string> $activeGroups Active validation groups
+     */
+    private function hasActiveValidationAttributes(ReflectionProperty $property, array $activeGroups): bool
+    {
+        foreach ($property->getAttributes() as $attribute) {
+            $instance = $attribute->newInstance();
+
+            if ($instance instanceof AssertInterface && $this->matchesGroups($instance, $activeGroups)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }
