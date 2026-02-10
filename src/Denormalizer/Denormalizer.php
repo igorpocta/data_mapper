@@ -382,9 +382,10 @@ class Denormalizer
                 // For properties (not in constructor), missing data is not an error unless required
                 // Check if property is required (not nullable and no default value)
                 $isNullable = $this->isPropertyNullable($property);
-                if (!$isNullable && $path !== null && $this->throwOnMissingData) {
-                    $fullPath = $this->buildFullFieldPath($path);
-                    $this->errors[$fullPath] = $this->buildPathResolutionError($property->getName(), $path, $data, $fullPath);
+                $hasDefault = $property->hasDefaultValue();
+                if (!$isNullable && !$hasDefault && $this->throwOnMissingData) {
+                    $fullPath = $this->buildFullFieldPath($path ?? $jsonKey);
+                    $this->errors[$fullPath] = "Missing required property '{$property->getName()}' at path '{$fullPath}'";
                 }
                 return;
             }

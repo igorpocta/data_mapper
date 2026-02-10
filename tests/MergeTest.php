@@ -23,7 +23,7 @@ class MergeTest extends TestCase
     public function testMergeUpdatesOnlySpecifiedProperties(): void
     {
         // Create object with initial values
-        $data = ['id' => 1, 'name' => 'John', 'active' => true, 'user_age' => 30, 'is_admin' => false];
+        $data = ['id' => 1, 'name' => 'John', 'active' => true, 'user_age' => 30, 'is_admin' => false, 'unmappedProperty' => 'test'];
         $object = $this->mapper->fromArray($data, TestClass::class);
 
         // Merge partial update - only change name
@@ -41,7 +41,7 @@ class MergeTest extends TestCase
 
     public function testMergeUpdatesMultipleProperties(): void
     {
-        $data = ['id' => 1, 'name' => 'John', 'active' => true, 'user_age' => 30, 'is_admin' => false];
+        $data = ['id' => 1, 'name' => 'John', 'active' => true, 'user_age' => 30, 'is_admin' => false, 'unmappedProperty' => 'test'];
         $object = $this->mapper->fromArray($data, TestClass::class);
 
         // Update multiple properties
@@ -62,7 +62,7 @@ class MergeTest extends TestCase
 
     public function testMergeReturnsTheSameInstance(): void
     {
-        $data = ['id' => 1, 'name' => 'John', 'active' => true, 'user_age' => 30, 'is_admin' => false];
+        $data = ['id' => 1, 'name' => 'John', 'active' => true, 'user_age' => 30, 'is_admin' => false, 'unmappedProperty' => 'test'];
         $object = $this->mapper->fromArray($data, TestClass::class);
 
         $partialData = ['name' => 'Jane'];
@@ -100,7 +100,7 @@ class MergeTest extends TestCase
 
     public function testMergeWithEmptyData(): void
     {
-        $data = ['id' => 1, 'name' => 'John', 'active' => true, 'user_age' => 30, 'is_admin' => false];
+        $data = ['id' => 1, 'name' => 'John', 'active' => true, 'user_age' => 30, 'is_admin' => false, 'unmappedProperty' => 'test'];
         $object = $this->mapper->fromArray($data, TestClass::class);
 
         // Merge empty data - nothing should change
@@ -113,7 +113,7 @@ class MergeTest extends TestCase
 
     public function testMergeIgnoresUnknownPropertiesInNonStrictMode(): void
     {
-        $data = ['id' => 1, 'name' => 'John', 'active' => true, 'user_age' => 30, 'is_admin' => false];
+        $data = ['id' => 1, 'name' => 'John', 'active' => true, 'user_age' => 30, 'is_admin' => false, 'unmappedProperty' => 'test'];
         $object = $this->mapper->fromArray($data, TestClass::class);
 
         // Unknown properties should be ignored
@@ -132,7 +132,7 @@ class MergeTest extends TestCase
     {
         $mapper = new Mapper(MapperOptions::withStrictMode());
 
-        $data = ['id' => 1, 'name' => 'John', 'active' => true, 'user_age' => 30, 'is_admin' => false];
+        $data = ['id' => 1, 'name' => 'John', 'active' => true, 'user_age' => 30, 'is_admin' => false, 'unmappedProperty' => 'test'];
         $object = $mapper->fromArray($data, TestClass::class);
 
         $partialData = [
@@ -148,7 +148,7 @@ class MergeTest extends TestCase
 
     public function testMergeWithCustomPropertyNames(): void
     {
-        $data = ['id' => 1, 'name' => 'John', 'active' => true, 'user_age' => 30, 'is_admin' => false];
+        $data = ['id' => 1, 'name' => 'John', 'active' => true, 'user_age' => 30, 'is_admin' => false, 'unmappedProperty' => 'test'];
         $object = $this->mapper->fromArray($data, TestClass::class);
 
         // Use JSON key name (user_age instead of age)
@@ -160,7 +160,7 @@ class MergeTest extends TestCase
 
     public function testMergeWithTypeConversion(): void
     {
-        $data = ['id' => 1, 'name' => 'John', 'active' => true, 'user_age' => 30, 'is_admin' => false];
+        $data = ['id' => 1, 'name' => 'John', 'active' => true, 'user_age' => 30, 'is_admin' => false, 'unmappedProperty' => 'test'];
         $object = $this->mapper->fromArray($data, TestClass::class);
 
         // Pass string that should be converted to int
@@ -173,7 +173,7 @@ class MergeTest extends TestCase
 
     public function testMergeWithBooleanConversion(): void
     {
-        $data = ['id' => 1, 'name' => 'John', 'active' => true, 'user_age' => 30, 'is_admin' => false];
+        $data = ['id' => 1, 'name' => 'John', 'active' => true, 'user_age' => 30, 'is_admin' => false, 'unmappedProperty' => 'test'];
         $object = $this->mapper->fromArray($data, TestClass::class);
 
         // Various boolean representations
@@ -200,7 +200,7 @@ class MergeTest extends TestCase
 
     public function testMergeMultipleTimesOnSameObject(): void
     {
-        $data = ['id' => 1, 'name' => 'John', 'active' => true, 'user_age' => 30, 'is_admin' => false];
+        $data = ['id' => 1, 'name' => 'John', 'active' => true, 'user_age' => 30, 'is_admin' => false, 'unmappedProperty' => 'test'];
         $object = $this->mapper->fromArray($data, TestClass::class);
 
         // First merge

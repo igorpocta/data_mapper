@@ -114,6 +114,243 @@ class ThrowOnMissingDataTest extends TestCase
         $this->assertInstanceOf(ThrowOnMissingDataUserWithNullable::class, $user);
         $this->assertNull($user->age);
     }
+
+    public function testThrowsOnMissingRequiredPropertyWithoutMapPropertyAttribute(): void
+    {
+        $mapper = new Mapper();
+
+        $data = [
+            'name' => 'Test',
+            // Missing 'hspId' which is required (int, no default, no MapProperty)
+        ];
+
+        $this->expectException(ValidationException::class);
+
+        $mapper->fromArray($data, ThrowOnMissingDataNonConstructorRequired::class);
+    }
+
+    public function testDoesNotThrowOnMissingPropertyWithDefaultValue(): void
+    {
+        $mapper = new Mapper();
+
+        $data = [
+            'name' => 'Test',
+            'hspId' => 42,
+            // Missing 'label' which has default value
+        ];
+
+        $result = $mapper->fromArray($data, ThrowOnMissingDataNonConstructorRequired::class);
+        $this->assertSame(42, $result->hspId);
+        $this->assertSame('default', $result->label);
+    }
+
+    public function testDoesNotThrowOnMissingNullablePropertyWithoutConstructor(): void
+    {
+        $mapper = new Mapper();
+
+        $data = [
+            'name' => 'Test',
+            'hspId' => 42,
+            // Missing 'description' which is nullable
+        ];
+
+        $result = $mapper->fromArray($data, ThrowOnMissingDataNonConstructorRequired::class);
+        $this->assertSame(42, $result->hspId);
+    }
+
+    public function testCollectsMultipleMissingPropertyErrors(): void
+    {
+        $mapper = new Mapper();
+
+        $data = [
+            // Missing both 'status' and 'priority' which are required non-constructor properties
+        ];
+
+        try {
+            $mapper->fromArray($data, ThrowOnMissingDataMultipleRequired::class);
+            $this->fail('Expected ValidationException');
+        } catch (ValidationException $e) {
+            $errors = $e->getErrors();
+            $this->assertArrayHasKey('status', $errors);
+            $this->assertArrayHasKey('priority', $errors);
+        }
+    }
+
+    public function testDoesNotThrowOnMissingPropertyWhenThrowOnMissingDataDisabled(): void
+    {
+        $options = new MapperOptions(throwOnMissingData: false);
+        $mapper = new Mapper($options);
+
+        $data = [
+            'name' => 'Test',
+            // Missing 'hspId' - but throwOnMissingData is disabled
+        ];
+
+        $result = $mapper->fromArray($data, ThrowOnMissingDataNonConstructorRequired::class);
+        $this->assertInstanceOf(ThrowOnMissingDataNonConstructorRequired::class, $result);
+    }
+
+    // --- Enum property without constructor, without MapProperty ---
+
+    public function testThrowsOnMissingRequiredEnumPropertyWithoutMapProperty(): void
+    {
+        $mapper = new Mapper();
+
+        $data = [
+            'name' => 'Test',
+            // Missing 'purpose' which is a required BackedEnum property
+        ];
+
+        try {
+            $mapper->fromArray($data, ThrowOnMissingDataWithEnum::class);
+            $this->fail('Expected ValidationException');
+        } catch (ValidationException $e) {
+            $errors = $e->getErrors();
+            $this->assertArrayHasKey('purpose', $errors);
+            $this->assertStringContainsString("Missing required property 'purpose'", $errors['purpose']);
+        }
+    }
+
+    public function testSucceedsWhenEnumPropertyIsProvided(): void
+    {
+        $mapper = new Mapper();
+
+        $data = [
+            'name' => 'Test',
+            'purpose' => 'external',
+        ];
+
+        $result = $mapper->fromArray($data, ThrowOnMissingDataWithEnum::class);
+        $this->assertSame('Test', $result->name);
+        $this->assertSame(ThrowOnMissingDataPurpose::External, $result->purpose);
+    }
+
+    // --- Inherited properties from parent class ---
+
+    public function testThrowsOnMissingRequiredInheritedProperty(): void
+    {
+        $mapper = new Mapper();
+
+        $data = [
+            'hspId' => 42,
+            // Missing 'name' from parent class
+        ];
+
+        $this->expectException(ValidationException::class);
+
+        $mapper->fromArray($data, ThrowOnMissingDataChildRequest::class);
+    }
+
+    public function testThrowsOnMissingRequiredChildProperty(): void
+    {
+        $mapper = new Mapper();
+
+        $data = [
+            'name' => 'Test',
+            // Missing 'hspId' from child class
+        ];
+
+        try {
+            $mapper->fromArray($data, ThrowOnMissingDataChildRequest::class);
+            $this->fail('Expected ValidationException');
+        } catch (ValidationException $e) {
+            $errors = $e->getErrors();
+            $this->assertArrayHasKey('hspId', $errors);
+        }
+    }
+
+    public function testSucceedsWhenAllInheritedAndChildPropertiesProvided(): void
+    {
+        $mapper = new Mapper();
+
+        $data = [
+            'name' => 'Test',
+            'hspId' => 42,
+            'purpose' => 'internal',
+        ];
+
+        $result = $mapper->fromArray($data, ThrowOnMissingDataChildRequest::class);
+        $this->assertSame('Test', $result->name);
+        $this->assertSame(42, $result->hspId);
+        $this->assertSame(ThrowOnMissingDataPurpose::Internal, $result->purpose);
+    }
+
+    public function testInheritedNullablePropertyDoesNotThrow(): void
+    {
+        $mapper = new Mapper();
+
+        $data = [
+            'name' => 'Test',
+            'hspId' => 42,
+            'purpose' => 'external',
+            // Missing 'description' from parent - nullable, should not throw
+        ];
+
+        $result = $mapper->fromArray($data, ThrowOnMissingDataChildRequest::class);
+        $this->assertSame(42, $result->hspId);
+    }
+
+    // --- Mix constructor + non-constructor: constructor errors throw first ---
+
+    public function testConstructorErrorThrowsBeforePropertyErrors(): void
+    {
+        $mapper = new Mapper();
+
+        $data = [
+            // Missing 'name' (constructor) AND 'hspId' (property)
+        ];
+
+        try {
+            $mapper->fromArray($data, ThrowOnMissingDataNonConstructorRequired::class);
+            $this->fail('Expected ValidationException');
+        } catch (ValidationException $e) {
+            $errors = $e->getErrors();
+            // Constructor error is thrown first, before property validation runs
+            $this->assertArrayHasKey('name', $errors);
+            // Property error is NOT collected because constructor fails first
+            $this->assertArrayNotHasKey('hspId', $errors);
+        }
+    }
+
+    // --- Property without constructor at all (no constructor class) ---
+
+    public function testThrowsOnMissingPropertyInClassWithoutConstructor(): void
+    {
+        $mapper = new Mapper();
+
+        $data = [
+            // Missing all required properties
+        ];
+
+        try {
+            $mapper->fromArray($data, ThrowOnMissingDataNoConstructor::class);
+            $this->fail('Expected ValidationException');
+        } catch (ValidationException $e) {
+            $errors = $e->getErrors();
+            $this->assertArrayHasKey('id', $errors);
+            $this->assertArrayHasKey('title', $errors);
+            // Optional properties should NOT be in errors
+            $this->assertArrayNotHasKey('note', $errors);
+            $this->assertArrayNotHasKey('tag', $errors);
+        }
+    }
+
+    public function testErrorMessageContainsPropertyPath(): void
+    {
+        $mapper = new Mapper();
+
+        $data = ['name' => 'Test'];
+
+        try {
+            $mapper->fromArray($data, ThrowOnMissingDataNonConstructorRequired::class);
+            $this->fail('Expected ValidationException');
+        } catch (ValidationException $e) {
+            $errors = $e->getErrors();
+            $this->assertArrayHasKey('hspId', $errors);
+            $this->assertStringContainsString('hspId', $errors['hspId']);
+            $this->assertStringContainsString("Missing required property", $errors['hspId']);
+        }
+    }
 }
 
 class ThrowOnMissingDataUser
@@ -177,4 +414,72 @@ class ThrowOnMissingDataSquare extends ThrowOnMissingDataBaseShape
     ) {
         parent::__construct($id);
     }
+}
+
+/**
+ * DTO with mix of constructor and non-constructor properties.
+ * Simulates real-world case like NewLeadTokenRequest where
+ * non-constructor properties without #[MapProperty] are required.
+ */
+class ThrowOnMissingDataNonConstructorRequired
+{
+    public int $hspId; // required: no default, not nullable, no MapProperty
+
+    public ?string $description = null; // optional: nullable with default
+
+    public string $label = 'default'; // optional: has default value
+
+    public function __construct(
+        public string $name
+    ) {
+    }
+}
+
+class ThrowOnMissingDataMultipleRequired
+{
+    public string $status; // required
+
+    public int $priority; // required
+}
+
+enum ThrowOnMissingDataPurpose: string
+{
+    case External = 'external';
+    case Internal = 'internal';
+}
+
+/** DTO with enum property, no constructor, no MapProperty */
+class ThrowOnMissingDataWithEnum
+{
+    public string $name;
+
+    public ThrowOnMissingDataPurpose $purpose; // required enum, no default, no MapProperty
+}
+
+/** Parent class simulating NewTokenRequest */
+class ThrowOnMissingDataParentRequest
+{
+    public string $name; // required in parent
+
+    public ?string $description = null; // nullable in parent
+}
+
+/** Child class simulating NewLeadTokenRequest */
+class ThrowOnMissingDataChildRequest extends ThrowOnMissingDataParentRequest
+{
+    public int $hspId; // required in child, no default, no MapProperty
+
+    public ThrowOnMissingDataPurpose $purpose; // required enum in child
+}
+
+/** Class without constructor at all - all public properties */
+class ThrowOnMissingDataNoConstructor
+{
+    public int $id; // required
+
+    public string $title; // required
+
+    public ?string $note = null; // optional: nullable with default
+
+    public string $tag = 'general'; // optional: has default
 }

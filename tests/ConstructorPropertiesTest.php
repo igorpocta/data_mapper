@@ -19,7 +19,7 @@ class ConstructorPropertiesTest extends TestCase
 
 	public function testFromArrayWithConstructorProperties(): void
 	{
-		$data = ['id' => 1, 'name' => 'John Doe', 'active' => true];
+		$data = ['id' => 1, 'name' => 'John Doe', 'active' => true, 'email' => 'test@example.com'];
 
 		$user = $this->mapper->fromArray($data, UserWithConstructor::class);
 
@@ -31,7 +31,7 @@ class ConstructorPropertiesTest extends TestCase
 
 	public function testFromArrayWithConstructorDefaultValue(): void
 	{
-		$data = ['id' => 2, 'name' => 'Jane Doe'];
+		$data = ['id' => 2, 'name' => 'Jane Doe', 'email' => 'test@example.com'];
 
 		$user = $this->mapper->fromArray($data, UserWithConstructor::class);
 
@@ -67,7 +67,7 @@ class ConstructorPropertiesTest extends TestCase
 
 	public function testFromArrayWithMultipleProperties(): void
 	{
-		$data = ['id' => 10, 'name' => 'Charlie', 'active' => false];
+		$data = ['id' => 10, 'name' => 'Charlie', 'active' => false, 'email' => 'test@example.com'];
 
 		$user = $this->mapper->fromArray($data, UserWithConstructor::class);
 
@@ -104,7 +104,7 @@ class ConstructorPropertiesTest extends TestCase
 
 	public function testFromJsonStillWorks(): void
 	{
-		$data = ['id' => 30, 'name' => 'JSON Test', 'active' => true];
+		$data = ['id' => 30, 'name' => 'JSON Test', 'active' => true, 'email' => 'test@example.com'];
 		$json = json_encode($data, JSON_THROW_ON_ERROR);
 
 		$user = $this->mapper->fromJson($json, UserWithConstructor::class);

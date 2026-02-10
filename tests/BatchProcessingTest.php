@@ -31,7 +31,7 @@ class BatchProcessingTest extends TestCase
     public function testFromArrayCollectionWithSingleItem(): void
     {
         $data = [
-            ['id' => 1, 'name' => 'John', 'active' => true, 'user_age' => 30, 'is_admin' => false]
+            ['id' => 1, 'name' => 'John', 'active' => true, 'user_age' => 30, 'is_admin' => false, 'unmappedProperty' => 'test']
         ];
 
         $result = $this->mapper->fromArrayCollection($data, TestClass::class);
@@ -45,9 +45,9 @@ class BatchProcessingTest extends TestCase
     public function testFromArrayCollectionWithMultipleItems(): void
     {
         $data = [
-            ['id' => 1, 'name' => 'John', 'active' => true, 'user_age' => 30, 'is_admin' => false],
-            ['id' => 2, 'name' => 'Jane', 'active' => false, 'user_age' => 25, 'is_admin' => true],
-            ['id' => 3, 'name' => 'Bob', 'active' => true, 'user_age' => 35, 'is_admin' => false],
+            ['id' => 1, 'name' => 'John', 'active' => true, 'user_age' => 30, 'is_admin' => false, 'unmappedProperty' => 'test'],
+            ['id' => 2, 'name' => 'Jane', 'active' => false, 'user_age' => 25, 'is_admin' => true, 'unmappedProperty' => 'test'],
+            ['id' => 3, 'name' => 'Bob', 'active' => true, 'user_age' => 35, 'is_admin' => false, 'unmappedProperty' => 'test'],
         ];
 
         $result = $this->mapper->fromArrayCollection($data, TestClass::class);
@@ -71,9 +71,9 @@ class BatchProcessingTest extends TestCase
     {
         /** @var array<int, array<string, mixed>> $data */
         $data = [
-            ['id' => 1, 'name' => 'John', 'active' => true, 'user_age' => 30, 'is_admin' => false],
+            ['id' => 1, 'name' => 'John', 'active' => true, 'user_age' => 30, 'is_admin' => false, 'unmappedProperty' => 'test'],
             'invalid', // Not an array - will cause TypeError
-            ['id' => 3, 'name' => 'Bob', 'active' => true, 'user_age' => 35, 'is_admin' => false],
+            ['id' => 3, 'name' => 'Bob', 'active' => true, 'user_age' => 35, 'is_admin' => false, 'unmappedProperty' => 'test'],
         ];
 
         $this->expectException(\TypeError::class);
@@ -86,8 +86,8 @@ class BatchProcessingTest extends TestCase
         $mapper = new Mapper(MapperOptions::withStrictMode());
 
         $data = [
-            ['id' => 1, 'name' => 'John', 'active' => true, 'user_age' => 30, 'is_admin' => false],
-            ['id' => 2, 'name' => 'Jane', 'active' => false, 'user_age' => 25, 'is_admin' => true, 'unknown' => 'error'],
+            ['id' => 1, 'name' => 'John', 'active' => true, 'user_age' => 30, 'is_admin' => false, 'unmappedProperty' => 'test'],
+            ['id' => 2, 'name' => 'Jane', 'active' => false, 'user_age' => 25, 'is_admin' => true, 'unmappedProperty' => 'test', 'unknown' => 'error'],
         ];
 
         $this->expectException(ValidationException::class);
@@ -108,8 +108,8 @@ class BatchProcessingTest extends TestCase
     public function testFromJsonCollectionWithMultipleItems(): void
     {
         $json = '[
-            {"id": 1, "name": "John", "active": true, "user_age": 30, "is_admin": false},
-            {"id": 2, "name": "Jane", "active": false, "user_age": 25, "is_admin": true}
+            {"id": 1, "name": "John", "active": true, "user_age": 30, "is_admin": false, "unmappedProperty": "test"},
+            {"id": 2, "name": "Jane", "active": false, "user_age": 25, "is_admin": true, "unmappedProperty": "test"}
         ]';
 
         $result = $this->mapper->fromJsonCollection($json, TestClass::class);
@@ -150,34 +150,43 @@ class BatchProcessingTest extends TestCase
     public function testToArrayCollectionWithSingleItem(): void
     {
         $obj = new UserWithConstructor(1, 'John');
+        $obj->setEmail('john@example.com');
 
         $result = $this->mapper->toArrayCollection([$obj]);
 
         $this->assertCount(1, $result);
-        $this->assertSame(['id' => 1, 'name' => 'John', 'active' => true], $result[0]);
+        $this->assertSame(['email' => 'john@example.com', 'id' => 1, 'name' => 'John', 'active' => true], $result[0]);
     }
 
     public function testToArrayCollectionWithMultipleItems(): void
     {
-        $objects = [
-            new UserWithConstructor(1, 'John'),
-            new UserWithConstructor(2, 'Jane'),
-            new UserWithConstructor(3, 'Bob'),
-        ];
+        $user1 = new UserWithConstructor(1, 'John');
+        $user1->setEmail('john@example.com');
+
+        $user2 = new UserWithConstructor(2, 'Jane');
+        $user2->setEmail('jane@example.com');
+
+        $user3 = new UserWithConstructor(3, 'Bob');
+        $user3->setEmail('bob@example.com');
+
+        $objects = [$user1, $user2, $user3];
 
         $result = $this->mapper->toArrayCollection($objects);
 
         $this->assertCount(3, $result);
-        $this->assertSame(['id' => 1, 'name' => 'John', 'active' => true], $result[0]);
-        $this->assertSame(['id' => 2, 'name' => 'Jane', 'active' => true], $result[1]);
-        $this->assertSame(['id' => 3, 'name' => 'Bob', 'active' => true], $result[2]);
+        $this->assertSame(['email' => 'john@example.com', 'id' => 1, 'name' => 'John', 'active' => true], $result[0]);
+        $this->assertSame(['email' => 'jane@example.com', 'id' => 2, 'name' => 'Jane', 'active' => true], $result[1]);
+        $this->assertSame(['email' => 'bob@example.com', 'id' => 3, 'name' => 'Bob', 'active' => true], $result[2]);
     }
 
     public function testToArrayCollectionThrowsOnInvalidItem(): void
     {
+        $user = new UserWithConstructor(1, 'John');
+        $user->setEmail('john@example.com');
+
         /** @var array<int, object> $collection */
         $collection = [
-            new UserWithConstructor(1, 'John'),
+            $user,
             'invalid', // Not an object - will cause TypeError
         ];
 
@@ -195,14 +204,17 @@ class BatchProcessingTest extends TestCase
 
     public function testToJsonCollectionWithMultipleItems(): void
     {
-        $objects = [
-            new UserWithConstructor(1, 'John'),
-            new UserWithConstructor(2, 'Jane'),
-        ];
+        $user1 = new UserWithConstructor(1, 'John');
+        $user1->setEmail('john@example.com');
+
+        $user2 = new UserWithConstructor(2, 'Jane');
+        $user2->setEmail('jane@example.com');
+
+        $objects = [$user1, $user2];
 
         $result = $this->mapper->toJsonCollection($objects);
 
-        $expected = '[{"id":1,"name":"John","active":true},{"id":2,"name":"Jane","active":true}]';
+        $expected = '[{"email":"john@example.com","id":1,"name":"John","active":true},{"email":"jane@example.com","id":2,"name":"Jane","active":true}]';
         $this->assertSame($expected, $result);
     }
 
@@ -210,8 +222,8 @@ class BatchProcessingTest extends TestCase
     {
         // Original data
         $originalData = [
-            ['id' => 1, 'name' => 'John', 'active' => true, 'user_age' => 30, 'is_admin' => false],
-            ['id' => 2, 'name' => 'Jane', 'active' => false, 'user_age' => 25, 'is_admin' => true],
+            ['id' => 1, 'name' => 'John', 'active' => true, 'user_age' => 30, 'is_admin' => false, 'unmappedProperty' => 'test'],
+            ['id' => 2, 'name' => 'Jane', 'active' => false, 'user_age' => 25, 'is_admin' => true, 'unmappedProperty' => 'test'],
         ];
 
         // Array -> Objects
@@ -231,7 +243,7 @@ class BatchProcessingTest extends TestCase
     public function testRoundTripWithJsonCollection(): void
     {
         // Original JSON (with active since it has default value)
-        $originalJson = '[{"id":1,"name":"John","active":true},{"id":2,"name":"Jane","active":true}]';
+        $originalJson = '[{"email":"john@test.com","id":1,"name":"John","active":true},{"email":"jane@test.com","id":2,"name":"Jane","active":true}]';
 
         // JSON -> Objects
         $objects = $this->mapper->fromJsonCollection($originalJson, UserWithConstructor::class);
@@ -246,11 +258,11 @@ class BatchProcessingTest extends TestCase
     public function testBatchProcessingMaintainsOrder(): void
     {
         $data = [
-            ['id' => 5, 'name' => 'Five', 'active' => true, 'user_age' => 30, 'is_admin' => false],
-            ['id' => 3, 'name' => 'Three', 'active' => true, 'user_age' => 30, 'is_admin' => false],
-            ['id' => 1, 'name' => 'One', 'active' => true, 'user_age' => 30, 'is_admin' => false],
-            ['id' => 4, 'name' => 'Four', 'active' => true, 'user_age' => 30, 'is_admin' => false],
-            ['id' => 2, 'name' => 'Two', 'active' => true, 'user_age' => 30, 'is_admin' => false],
+            ['id' => 5, 'name' => 'Five', 'active' => true, 'user_age' => 30, 'is_admin' => false, 'unmappedProperty' => 'test'],
+            ['id' => 3, 'name' => 'Three', 'active' => true, 'user_age' => 30, 'is_admin' => false, 'unmappedProperty' => 'test'],
+            ['id' => 1, 'name' => 'One', 'active' => true, 'user_age' => 30, 'is_admin' => false, 'unmappedProperty' => 'test'],
+            ['id' => 4, 'name' => 'Four', 'active' => true, 'user_age' => 30, 'is_admin' => false, 'unmappedProperty' => 'test'],
+            ['id' => 2, 'name' => 'Two', 'active' => true, 'user_age' => 30, 'is_admin' => false, 'unmappedProperty' => 'test'],
         ];
 
         $objects = $this->mapper->fromArrayCollection($data, TestClass::class);

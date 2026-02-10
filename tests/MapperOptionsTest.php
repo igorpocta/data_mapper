@@ -139,6 +139,7 @@ class MapperOptionsTest extends TestCase
             'active' => true,
             'user_age' => 30,
             'is_admin' => false,
+            'unmappedProperty' => 'test',
             'unknown_key' => 'not allowed'
         ];
 
@@ -158,6 +159,7 @@ class MapperOptionsTest extends TestCase
             'active' => true,
             'user_age' => 30,
             'is_admin' => false,
+            'unmappedProperty' => 'test',
             'extra' => 'value'
         ];
 
@@ -177,6 +179,7 @@ class MapperOptionsTest extends TestCase
             'active' => true,
             'user_age' => 30,
             'is_admin' => false,
+            'unmappedProperty' => 'test',
             'extra' => 'ignored'
         ];
 

@@ -48,7 +48,8 @@ class StrictModeTest extends TestCase
             'name' => 'John Doe',
             'active' => true,
             'user_age' => 30,
-            'is_admin' => false
+            'is_admin' => false,
+            'unmappedProperty' => 'test'
         ];
 
         $object = $mapper->fromArray($data, TestClass::class);
@@ -71,6 +72,7 @@ class StrictModeTest extends TestCase
             'active' => true,
             'user_age' => 30,
             'is_admin' => false,
+            'unmappedProperty' => 'test',
             'unknown_field' => 'not allowed'
         ];
 
@@ -90,6 +92,7 @@ class StrictModeTest extends TestCase
             'active' => true,
             'user_age' => 30,
             'is_admin' => false,
+            'unmappedProperty' => 'test',
             'unknown_field_1' => 'not allowed',
             'unknown_field_2' => 'also not allowed'
         ];
@@ -115,6 +118,7 @@ class StrictModeTest extends TestCase
             'active' => true,
             'user_age' => 30,
             'is_admin' => false,
+            'unmappedProperty' => 'test',
             'unknown_field' => 'ignored'
         ];
 
@@ -128,7 +132,7 @@ class StrictModeTest extends TestCase
     {
         $mapper = new Mapper(MapperOptions::withStrictMode());
 
-        $json = '{"id": 1, "name": "John Doe", "active": true, "user_age": 30, "is_admin": false, "unknown": "error"}';
+        $json = '{"id": 1, "name": "John Doe", "active": true, "user_age": 30, "is_admin": false, "unmappedProperty": "test", "unknown": "error"}';
 
         $this->expectException(ValidationException::class);
         $this->expectExceptionMessage("Unknown key 'unknown'");

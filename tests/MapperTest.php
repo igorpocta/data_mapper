@@ -21,7 +21,7 @@ class MapperTest extends TestCase
 
     public function testFromArrayWithBasicTypes(): void
     {
-        $data = ['id' => 1, 'name' => 'John Doe', 'active' => true, 'user_age' => 30, 'is_admin' => false];
+        $data = ['id' => 1, 'name' => 'John Doe', 'active' => true, 'user_age' => 30, 'is_admin' => false, 'unmappedProperty' => 'test'];
 
         $object = $this->mapper->fromArray($data, TestClass::class);
 
@@ -35,7 +35,7 @@ class MapperTest extends TestCase
 
     public function testFromArrayWithStringInteger(): void
     {
-        $data = ['id' => '42', 'name' => 'Test', 'active' => true, 'user_age' => '25', 'is_admin' => false];
+        $data = ['id' => '42', 'name' => 'Test', 'active' => true, 'user_age' => '25', 'is_admin' => false, 'unmappedProperty' => 'test'];
 
         $object = $this->mapper->fromArray($data, TestClass::class);
 
@@ -45,7 +45,7 @@ class MapperTest extends TestCase
 
     public function testFromArrayWithStringBoolean(): void
     {
-        $data = ['id' => 1, 'name' => 'Test', 'active' => 'true', 'user_age' => 30, 'is_admin' => 'false'];
+        $data = ['id' => 1, 'name' => 'Test', 'active' => 'true', 'user_age' => 30, 'is_admin' => 'false', 'unmappedProperty' => 'test'];
 
         $object = $this->mapper->fromArray($data, TestClass::class);
 
@@ -55,7 +55,7 @@ class MapperTest extends TestCase
 
     public function testFromArrayWithNumericBoolean(): void
     {
-        $data = ['id' => 1, 'name' => 'Test', 'active' => 1, 'user_age' => 30, 'is_admin' => 0];
+        $data = ['id' => 1, 'name' => 'Test', 'active' => 1, 'user_age' => 30, 'is_admin' => 0, 'unmappedProperty' => 'test'];
 
         $object = $this->mapper->fromArray($data, TestClass::class);
 
@@ -65,7 +65,7 @@ class MapperTest extends TestCase
 
     public function testFromArrayWithCustomPropertyName(): void
     {
-        $data = ['id' => 1, 'name' => 'Test', 'active' => true, 'user_age' => 40, 'is_admin' => true];
+        $data = ['id' => 1, 'name' => 'Test', 'active' => true, 'user_age' => 40, 'is_admin' => true, 'unmappedProperty' => 'test'];
 
         $object = $this->mapper->fromArray($data, TestClass::class);
 
@@ -75,26 +75,25 @@ class MapperTest extends TestCase
 
     public function testFromArrayIgnoresUnmappedProperties(): void
     {
-        $data = ['id' => 1, 'name' => 'Test', 'active' => true, 'user_age' => 30, 'is_admin' => false, 'extra_field' => 'ignored'];
+        $data = ['id' => 1, 'name' => 'Test', 'active' => true, 'user_age' => 30, 'is_admin' => false, 'unmappedProperty' => 'test', 'extra_field' => 'ignored'];
 
         $object = $this->mapper->fromArray($data, TestClass::class);
 
         $this->assertInstanceOf(TestClass::class, $object);
     }
 
-    public function testFromArrayWithMissingFields(): void
+    public function testFromArrayWithMissingRequiredFieldsThrows(): void
     {
         $data = ['id' => 1, 'name' => 'Test'];
 
-        $object = $this->mapper->fromArray($data, TestClass::class);
+        $this->expectException(\Pocta\DataMapper\Exceptions\ValidationException::class);
 
-        $this->assertSame(1, $object->getId());
-        $this->assertSame('Test', $object->getName());
+        $this->mapper->fromArray($data, TestClass::class);
     }
 
     public function testFromArrayThrowsExceptionOnInvalidIntegerCast(): void
     {
-        $data = ['id' => 'not a number', 'name' => 'Test', 'active' => true, 'user_age' => 30, 'is_admin' => false];
+        $data = ['id' => 'not a number', 'name' => 'Test', 'active' => true, 'user_age' => 30, 'is_admin' => false, 'unmappedProperty' => 'test'];
 
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage("Cannot cast value of field 'id' to integer");
@@ -104,7 +103,7 @@ class MapperTest extends TestCase
 
     public function testFromArrayThrowsExceptionOnInvalidBooleanCast(): void
     {
-        $data = ['id' => 1, 'name' => 'Test', 'active' => 'invalid', 'user_age' => 30, 'is_admin' => false];
+        $data = ['id' => 1, 'name' => 'Test', 'active' => 'invalid', 'user_age' => 30, 'is_admin' => false, 'unmappedProperty' => 'test'];
 
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage("Cannot cast value of field 'active' to boolean");
@@ -155,7 +154,7 @@ class MapperTest extends TestCase
 
     public function testRoundTripConversion(): void
     {
-        $originalData = ['id' => 123, 'name' => 'Round Trip', 'active' => true, 'user_age' => 35, 'is_admin' => false];
+        $originalData = ['id' => 123, 'name' => 'Round Trip', 'active' => true, 'user_age' => 35, 'is_admin' => false, 'unmappedProperty' => 'test'];
 
         $object = $this->mapper->fromArray($originalData, TestClass::class);
         $resultData = $this->mapper->toArray($object);
@@ -169,7 +168,7 @@ class MapperTest extends TestCase
 
     public function testFromArrayHandlesZeroValues(): void
     {
-        $data = ['id' => 0, 'name' => '', 'active' => false, 'user_age' => 0, 'is_admin' => false];
+        $data = ['id' => 0, 'name' => '', 'active' => false, 'user_age' => 0, 'is_admin' => false, 'unmappedProperty' => 'test'];
 
         $object = $this->mapper->fromArray($data, TestClass::class);
 
@@ -223,6 +222,7 @@ class MapperTest extends TestCase
             'active' => true,
             'user_age' => 25,
             'is_admin' => true,
+            'unmappedProperty' => 'test',
             'extra1' => 'ignored',
             'extra2' => 123,
             'extra3' => false
@@ -247,7 +247,7 @@ class MapperTest extends TestCase
 
     public function testFromJsonWorksWithValidJson(): void
     {
-        $data = ['id' => 300, 'name' => 'JSON Test', 'active' => true, 'user_age' => 40, 'is_admin' => false];
+        $data = ['id' => 300, 'name' => 'JSON Test', 'active' => true, 'user_age' => 40, 'is_admin' => false, 'unmappedProperty' => 'test'];
         $json = json_encode($data, JSON_THROW_ON_ERROR);
 
         $object = $this->mapper->fromJson($json, TestClass::class);
@@ -283,7 +283,7 @@ class MapperTest extends TestCase
 
     public function testJsonRoundTrip(): void
     {
-        $originalData = ['id' => 500, 'name' => 'JSON Round', 'active' => true, 'user_age' => 60, 'is_admin' => false];
+        $originalData = ['id' => 500, 'name' => 'JSON Round', 'active' => true, 'user_age' => 60, 'is_admin' => false, 'unmappedProperty' => 'test'];
         $json1 = json_encode($originalData, JSON_THROW_ON_ERROR);
 
         $object = $this->mapper->fromJson($json1, TestClass::class);

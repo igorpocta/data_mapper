@@ -3,7 +3,7 @@
 [![CI](https://github.com/igorpocta/data_mapper/actions/workflows/ci.yml/badge.svg)](https://github.com/igorpocta/data-mapper/actions/workflows/ci.yml)
 [![PHP Version](https://img.shields.io/badge/PHP-8.1%2B-blue)](https://php.net)
 [![PHPStan Level](https://img.shields.io/badge/PHPStan-level%209-brightgreen)](https://phpstan.org)
-[![Tests](https://img.shields.io/badge/tests-576%20passing-success)](.)
+[![Tests](https://img.shields.io/badge/tests-590%20passing-success)](.)
 
 High-performance and type-safe PHP library for bidirectional data mapping between JSON/arrays/CSV and objects.
 
@@ -86,7 +86,7 @@ $mapper = new Mapper(MapperOptions::strict());       // Both auto-validation and
 
 ### Code Quality
 - **PHPStan Level 9**: Strictest static analysis
-- **572 unit tests**, 1494 assertions
+- **590 unit tests**, 1523 assertions
 - **Zero external dependencies**
 - **Debug & Profiling**: Integrated tools for performance analysis
 
