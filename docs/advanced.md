@@ -156,6 +156,90 @@ $event = $mapper->fromArray($data, EventDTO::class);
 // $event->createdAt is DateTimeImmutable object
 ```
 
+### DateTime Output Format (`outputFormat`)
+
+By default, DateTime properties are serialized to ISO 8601 with microseconds (`Y-m-d\TH:i:s.uP`) when converting objects to JSON/array. Use the `outputFormat` parameter to customize the output:
+
+```php
+use Pocta\DataMapper\Attributes\MapDateTimeProperty;
+
+class MeetingRecord
+{
+    public int $id;
+
+    // Output as date only (Y-m-d)
+    #[MapDateTimeProperty(outputFormat: 'Y-m-d')]
+    public DateTimeImmutable $createdAt;
+}
+
+$record = new MeetingRecord();
+$record->id = 1;
+$record->createdAt = new DateTimeImmutable('2025-03-21 12:15:35');
+
+$data = $mapper->toArray($record);
+// ['id' => 1, 'createdAt' => '2025-03-21']
+
+$json = $mapper->toJson($record);
+// {"id":1,"createdAt":"2025-03-21"}
+```
+
+**Common output formats:**
+
+```php
+class Example
+{
+    // Date only
+    #[MapDateTimeProperty(outputFormat: 'Y-m-d')]
+    public DateTimeImmutable $date;
+    // Output: "2025-03-21"
+
+    // DateTime without timezone
+    #[MapDateTimeProperty(outputFormat: 'Y-m-d H:i:s')]
+    public DateTimeImmutable $datetime;
+    // Output: "2025-03-21 12:15:35"
+
+    // ATOM format (RFC 3339)
+    #[MapDateTimeProperty(outputFormat: DateTimeInterface::ATOM)]
+    public DateTimeImmutable $atom;
+    // Output: "2025-03-21T12:15:35+00:00"
+
+    // Time only
+    #[MapDateTimeProperty(outputFormat: 'H:i:s')]
+    public DateTimeImmutable $time;
+    // Output: "12:15:35"
+
+    // Custom format
+    #[MapDateTimeProperty(outputFormat: 'd.m.Y')]
+    public DateTimeImmutable $czechDate;
+    // Output: "21.03.2025"
+}
+```
+
+**Input and output formats can differ:**
+
+```php
+class Event
+{
+    // Parse input as "d/m/Y H:i", serialize output as "Y-m-d"
+    #[MapDateTimeProperty(format: 'd/m/Y H:i', outputFormat: 'Y-m-d')]
+    public DateTimeImmutable $eventDate;
+}
+
+$event = $mapper->fromArray(['eventDate' => '21/03/2025 12:15'], Event::class);
+$data = $mapper->toArray($event);
+// ['eventDate' => '2025-03-21']
+```
+
+**Parameters overview:**
+
+| Parameter | Direction | Description |
+|-----------|-----------|-------------|
+| `format` | Input (denormalization) | Custom format for parsing input strings to DateTime |
+| `outputFormat` | Output (normalization) | Custom format for serializing DateTime to string |
+| `timezone` | Input | Timezone for parsing input |
+
+> **Note:** Without `outputFormat`, DateTime properties always serialize to ISO 8601 with microseconds: `2025-03-21T12:15:35.000000+00:00`. Without `MapDateTimeProperty` attribute at all, the same default applies — the mapper automatically detects `DateTimeImmutable`/`DateTime` types from PHP type hints.
+
 ### Important Notes
 
 - **Mutually exclusive**: Cannot use both `name` and `path` parameters together

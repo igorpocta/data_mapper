@@ -85,8 +85,82 @@ class MapDateTimePropertyTest extends TestCase
 
         $this->assertSame(1, $data['id']);
         $this->assertIsString($data['customDate']);
-        // Output format is always ISO 8601
+        // Default output format is ISO 8601
         $this->assertMatchesRegularExpression('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/', $data['customDate']);
+    }
+
+    public function testToArrayWithOutputFormatDateOnly(): void
+    {
+        $object = new OutputFormatDateOnlyClass();
+        $object->id = 1;
+        $object->createdAt = new DateTimeImmutable('2024-12-15 18:30:00');
+
+        $data = $this->mapper->toArray($object);
+
+        $this->assertSame(1, $data['id']);
+        $this->assertSame('2024-12-15', $data['createdAt']);
+    }
+
+    public function testToArrayWithOutputFormatDateTimeNoTimezone(): void
+    {
+        $object = new OutputFormatDateTimeClass();
+        $object->id = 1;
+        $object->createdAt = new DateTimeImmutable('2024-12-15 18:30:00');
+
+        $data = $this->mapper->toArray($object);
+
+        $this->assertSame(1, $data['id']);
+        $this->assertSame('2024-12-15 18:30:00', $data['createdAt']);
+    }
+
+    public function testToArrayWithOutputFormatAtom(): void
+    {
+        $object = new OutputFormatAtomClass();
+        $object->id = 1;
+        $object->createdAt = new DateTimeImmutable('2024-12-15 18:30:00', new \DateTimeZone('UTC'));
+
+        $data = $this->mapper->toArray($object);
+
+        $this->assertSame(1, $data['id']);
+        $this->assertSame('2024-12-15T18:30:00+00:00', $data['createdAt']);
+    }
+
+    public function testToJsonWithOutputFormat(): void
+    {
+        $object = new OutputFormatDateOnlyClass();
+        $object->id = 1;
+        $object->createdAt = new DateTimeImmutable('2024-12-15 18:30:00');
+
+        $json = $this->mapper->toJson($object);
+        /** @var array<string, mixed> $data */
+        $data = json_decode($json, true);
+
+        $this->assertSame('2024-12-15', $data['createdAt']);
+    }
+
+    public function testInputAndOutputFormatCanDiffer(): void
+    {
+        // Input in custom format, output in different custom format
+        $input = ['id' => 1, 'eventDate' => '15/12/2024 18:30'];
+        $object = $this->mapper->fromArray($input, DifferentFormatsClass::class);
+
+        $this->assertSame('15/12/2024 18:30', $object->eventDate->format('d/m/Y H:i'));
+
+        $data = $this->mapper->toArray($object);
+        $this->assertSame('2024-12-15', $data['eventDate']);
+    }
+
+    public function testOutputFormatWithoutMapDateTimeProperty(): void
+    {
+        // DateTime property WITHOUT MapDateTimeProperty → default ISO 8601 output
+        $object = new NoAttributeDateTimeClass();
+        $object->id = 1;
+        $object->createdAt = new DateTimeImmutable('2024-12-15 18:30:00');
+
+        $data = $this->mapper->toArray($object);
+
+        $this->assertIsString($data['createdAt']);
+        $this->assertMatchesRegularExpression('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/', $data['createdAt']);
     }
 }
 
@@ -120,4 +194,43 @@ class TypeOverrideClass
 
     #[MapDateTimeProperty(type: PropertyType::DateTimeImmutable)]
     public DateTimeInterface $scheduledDate;
+}
+
+class OutputFormatDateOnlyClass
+{
+    public int $id;
+
+    #[MapDateTimeProperty(outputFormat: 'Y-m-d')]
+    public DateTimeImmutable $createdAt;
+}
+
+class OutputFormatDateTimeClass
+{
+    public int $id;
+
+    #[MapDateTimeProperty(outputFormat: 'Y-m-d H:i:s')]
+    public DateTimeImmutable $createdAt;
+}
+
+class OutputFormatAtomClass
+{
+    public int $id;
+
+    #[MapDateTimeProperty(outputFormat: DateTimeInterface::ATOM)]
+    public DateTimeImmutable $createdAt;
+}
+
+class DifferentFormatsClass
+{
+    public int $id;
+
+    #[MapDateTimeProperty(format: 'd/m/Y H:i', outputFormat: 'Y-m-d')]
+    public DateTimeImmutable $eventDate;
+}
+
+class NoAttributeDateTimeClass
+{
+    public int $id;
+
+    public DateTimeImmutable $createdAt;
 }

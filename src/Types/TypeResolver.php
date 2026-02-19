@@ -123,7 +123,8 @@ class TypeResolver
         ?string $format = null,
         ?string $timezone = null,
         ?string $arrayOf = null,
-        ?string $classType = null
+        ?string $classType = null,
+        ?string $outputFormat = null
     ): TypeInterface {
         // Check if it's an array type with arrayOf specified
         if ($typeName === 'array' && $arrayOf !== null) {
@@ -138,7 +139,7 @@ class TypeResolver
         // Check if it's a DateTimeInterface type
         if ($this->isDateTimeType($typeName)) {
             /** @var class-string<\DateTimeInterface> $typeName */
-            return $this->createDateTimeType($typeName, $format, $timezone);
+            return $this->createDateTimeType($typeName, $format, $timezone, $outputFormat);
         }
 
         // Check if it's an alias
@@ -242,15 +243,18 @@ class TypeResolver
     /**
      * @param class-string<\DateTimeInterface> $className
      */
-    private function createDateTimeType(string $className, ?string $format, ?string $timezone): TypeInterface
+    private function createDateTimeType(string $className, ?string $format, ?string $timezone, ?string $outputFormat = null): TypeInterface
     {
-        // Create a cache key based on class, format, and timezone
+        // Create a cache key based on class, format, timezone, and outputFormat
         $cacheKey = $className;
         if ($format !== null) {
             $cacheKey .= ':format:' . $format;
         }
         if ($timezone !== null) {
             $cacheKey .= ':tz:' . $timezone;
+        }
+        if ($outputFormat !== null) {
+            $cacheKey .= ':outputFormat:' . $outputFormat;
         }
 
         // Check if we already have this configuration cached
@@ -259,7 +263,7 @@ class TypeResolver
         }
 
         // Create new DateTimeType instance
-        $type = new DateTimeType($className, $format, $timezone);
+        $type = new DateTimeType($className, $format, $timezone, $outputFormat);
 
         // Cache it
         $this->types[$cacheKey] = $type;

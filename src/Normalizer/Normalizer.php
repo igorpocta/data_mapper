@@ -67,7 +67,8 @@ class Normalizer
                     $typeName = $this->getPropertyType($property);
                     $arrayOf = $this->getArrayOf($property);
                     $classType = $this->getClassType($property);
-                    $normalizedValue = $this->normalizeValue($value, $typeName, $arrayOf, $classType);
+                    $outputFormat = $this->getOutputFormat($property);
+                    $normalizedValue = $this->normalizeValue($value, $typeName, $arrayOf, $classType, $outputFormat);
                     // Apply post-normalization filters, if any
                     $normalizedValue = $this->applyFilters($property, $normalizedValue);
                     $data[$jsonKey] = $normalizedValue;
@@ -169,16 +170,17 @@ class Normalizer
      * @param string $typeName
      * @param string|null $arrayOf Class name or scalar type name
      * @param class-string|null $classType
+     * @param string|null $outputFormat Custom output format (for DateTime types)
      *
      * @return mixed
      */
-    private function normalizeValue(mixed $value, string $typeName, ?string $arrayOf = null, ?string $classType = null): mixed
+    private function normalizeValue(mixed $value, string $typeName, ?string $arrayOf = null, ?string $classType = null, ?string $outputFormat = null): mixed
     {
         if ($value === null) {
             return null;
         }
 
-        $type = $this->typeResolver->getType($typeName, null, null, $arrayOf, $classType);
+        $type = $this->typeResolver->getType($typeName, null, null, $arrayOf, $classType, $outputFormat);
         return $type->normalize($value);
     }
 
@@ -230,6 +232,24 @@ class Normalizer
                 return $attr->arrayOf->value;
             }
             return $attr->arrayOf;
+        }
+
+        return null;
+    }
+
+    /**
+     * Gets the output format for DateTime normalization from MapDateTimeProperty attribute.
+     *
+     * @param ReflectionProperty $property
+     *
+     * @return string|null
+     */
+    private function getOutputFormat(ReflectionProperty $property): ?string
+    {
+        $dateTimeAttributes = $property->getAttributes(MapDateTimeProperty::class);
+        if (!empty($dateTimeAttributes)) {
+            $attr = $dateTimeAttributes[0]->newInstance();
+            return $attr->outputFormat;
         }
 
         return null;

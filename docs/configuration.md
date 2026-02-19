@@ -60,7 +60,8 @@ $strictOptions = $baseOptions->with(strictMode: true);
 ### Date and Time
 - `DateTimeImmutable` - Immutable date/time object (recommended)
 - `DateTime` - Mutable date/time object
-- Format support: ISO 8601, RFC 3339, custom formats
+- Input format support: ISO 8601, RFC 3339, MySQL datetime, custom formats via `format` parameter
+- Output format: Configurable via `outputFormat` parameter (default: ISO 8601 with microseconds)
 - Timezones: Automatic conversion between timezones
 
 ### Enum (PHP 8.1+)

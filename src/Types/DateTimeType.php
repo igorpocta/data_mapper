@@ -28,11 +28,13 @@ class DateTimeType implements TypeInterface
      * @param class-string<DateTimeInterface> $className
      * @param string|null $format Custom input format (for denormalization)
      * @param string|null $timezone Timezone name
+     * @param string|null $outputFormat Custom output format (for normalization). If null, uses DEFAULT_FORMAT.
      */
     public function __construct(
         private readonly string $className = DateTimeImmutable::class,
         private readonly ?string $format = null,
-        private readonly ?string $timezone = null
+        private readonly ?string $timezone = null,
+        private readonly ?string $outputFormat = null
     ) {
         if (!in_array($this->className, [DateTime::class, DateTimeImmutable::class, DateTimeInterface::class], true)) {
             throw new InvalidArgumentException(
@@ -109,7 +111,7 @@ class DateTimeType implements TypeInterface
             );
         }
 
-        return $value->format(self::DEFAULT_FORMAT);
+        return $value->format($this->outputFormat ?? self::DEFAULT_FORMAT);
     }
 
     /**

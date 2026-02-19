@@ -17,6 +17,7 @@ class MapDateTimeProperty
      * @param string|null $path Property path with dot notation and array indexes (e.g., "user.address.street", "addresses[0].street")
      * @param PropertyType|null $type DateTime type (DateTime, DateTimeImmutable, DateTimeInterface)
      * @param string|null $format Custom datetime format for parsing input (e.g., 'd/m/Y H:i')
+     * @param string|null $outputFormat Custom datetime format for serialization output (e.g., 'Y-m-d', DateTimeInterface::ATOM). If null, uses default ISO 8601 format.
      * @param string|null $timezone Timezone name (e.g., 'Europe/Prague', 'UTC')
      * @param class-string|ArrayElementType|string|null $arrayOf Class name for array of objects, ArrayElementType enum for array of scalars (recommended), or type name string for backward compatibility when type is Array
      */
@@ -25,6 +26,7 @@ class MapDateTimeProperty
         public readonly ?string $path = null,
         public readonly ?PropertyType $type = null,
         public readonly ?string $format = null,
+        public readonly ?string $outputFormat = null,
         public readonly ?string $timezone = null,
         public readonly ArrayElementType|PropertyType|string|null $arrayOf = null
     ) {
