@@ -474,7 +474,6 @@ class Mapper
                 $typedValue = $type->denormalize($value, $key, $isNullable);
 
                 // Set the value
-                $property->setAccessible(true);
                 $property->setValue($target, $typedValue);
             }
 

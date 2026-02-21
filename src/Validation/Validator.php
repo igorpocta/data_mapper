@@ -120,8 +120,6 @@ class Validator
             return $errors;
         }
 
-        $property->setAccessible(true);
-
         if (!$property->isInitialized($object)) {
             if ($this->hasActiveValidationAttributes($property, $activeGroups)) {
                 $fullPath = $pathPrefix !== ''

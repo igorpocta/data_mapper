@@ -413,7 +413,6 @@ class Denormalizer
             return;
         }
 
-        $property->setAccessible(true);
         $property->setValue($instance, $typedValue);
     }
 

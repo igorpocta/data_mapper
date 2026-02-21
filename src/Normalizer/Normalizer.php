@@ -118,8 +118,6 @@ class Normalizer
      */
     private function getPropertyValue(ReflectionProperty $property, object $object): mixed
     {
-        $property->setAccessible(true);
-
         // Check if property is initialized to avoid accessing uninitialized typed properties
         if (!$property->isInitialized($object)) {
             return null;
