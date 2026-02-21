@@ -472,19 +472,15 @@ class ObjectMappingTest extends TestCase
         $user = $reflection->newInstanceWithoutConstructor();
 
         $firstNameProp = $reflection->getProperty('firstName');
-        $firstNameProp->setAccessible(true);
         $firstNameProp->setValue($user, 'Jane');
 
         $lastNameProp = $reflection->getProperty('lastName');
-        $lastNameProp->setAccessible(true);
         $lastNameProp->setValue($user, 'Smith');
 
         $activeProp = $reflection->getProperty('active');
-        $activeProp->setAccessible(true);
         $activeProp->setValue($user, false);
 
         $addressProp = $reflection->getProperty('address');
-        $addressProp->setAccessible(true);
         $addressProp->setValue($user, null);
 
         $dto = $this->mapper->fromObject($user, UserDTO::class);
