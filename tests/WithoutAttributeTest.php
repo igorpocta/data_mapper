@@ -82,8 +82,8 @@ class WithoutAttributeTest extends TestCase
         $this->assertSame(101, $data['id']);
         $this->assertSame('Title Only', $data['title']);
         $this->assertTrue($data['enabled']);
-        // Null values are not included by default
-        $this->assertArrayNotHasKey('note', $data);
+        $this->assertArrayHasKey('note', $data);
+        $this->assertNull($data['note']);
     }
 
     public function testRoundTripWithoutAttribute(): void

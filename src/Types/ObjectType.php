@@ -43,7 +43,8 @@ class ObjectType implements TypeInterface
             $this->denormalizer = new Denormalizer();
             $this->denormalizer->setStrictMode($this->strictMode);
         }
-        $this->normalizer = new Normalizer($this->typeResolver);
+        $skipNullValues = $this->typeResolver?->isSkipNullValues() ?? false;
+        $this->normalizer = new Normalizer($this->typeResolver, skipNullValues: $skipNullValues);
     }
 
     public function getName(): string

@@ -79,7 +79,8 @@ class Mapper
         $this->denormalizer->setStrictMode($this->strictMode);
         $this->denormalizer->setThrowOnMissingData($this->throwOnMissingData);
         $this->typeResolver->setStrictMode($this->strictMode);
-        $this->normalizer = $normalizer ?? new Normalizer($this->typeResolver, $this->metadataFactory);
+        $this->typeResolver->setSkipNullValues($options->skipNullValues);
+        $this->normalizer = $normalizer ?? new Normalizer($this->typeResolver, $this->metadataFactory, $options->skipNullValues);
 
         // Setup event listener for debugging events
         if ($this->debugger?->isEnabled()) {

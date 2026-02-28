@@ -125,8 +125,8 @@ class EnumSupportTest extends TestCase
 
         $data = $this->mapper->toArray($object);
 
-        // Null values are not included in the normalized output
-        $this->assertArrayNotHasKey('optionalStatus', $data);
+        $this->assertArrayHasKey('optionalStatus', $data);
+        $this->assertNull($data['optionalStatus']);
     }
 
     public function testToArrayWithNullableEnumSet(): void

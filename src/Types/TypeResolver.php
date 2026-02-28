@@ -16,6 +16,8 @@ class TypeResolver
 
     private bool $strictMode = false;
 
+    private bool $skipNullValues = false;
+
     /** @var array<string, mixed>|null */
     private ?array $rootPayload = null;
 
@@ -58,6 +60,22 @@ class TypeResolver
     public function isStrictMode(): bool
     {
         return $this->strictMode;
+    }
+
+    /**
+     * Set skipNullValues for nested normalizations.
+     */
+    public function setSkipNullValues(bool $skipNullValues): void
+    {
+        $this->skipNullValues = $skipNullValues;
+    }
+
+    /**
+     * Get current skipNullValues setting.
+     */
+    public function isSkipNullValues(): bool
+    {
+        return $this->skipNullValues;
     }
 
     /**

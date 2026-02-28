@@ -80,10 +80,12 @@ class NullablePropertiesTest extends TestCase
 
         $this->assertSame(10, $data['id']);
         $this->assertSame('Test Product', $data['name']);
-        // Null values are not included in output by default
-        $this->assertArrayNotHasKey('description', $data);
-        $this->assertArrayNotHasKey('stock', $data);
-        $this->assertArrayNotHasKey('featured', $data);
+        $this->assertArrayHasKey('description', $data);
+        $this->assertNull($data['description']);
+        $this->assertArrayHasKey('stock', $data);
+        $this->assertNull($data['stock']);
+        $this->assertArrayHasKey('featured', $data);
+        $this->assertNull($data['featured']);
     }
 
     public function testToArrayWithSomeNullValues(): void
@@ -100,7 +102,8 @@ class NullablePropertiesTest extends TestCase
         $this->assertSame(11, $data['id']);
         $this->assertSame('Another Product', $data['name']);
         $this->assertSame('Has description', $data['description']);
-        $this->assertArrayNotHasKey('stock', $data);
+        $this->assertArrayHasKey('stock', $data);
+        $this->assertNull($data['stock']);
         $this->assertTrue($data['featured']);
     }
 
@@ -139,9 +142,12 @@ class NullablePropertiesTest extends TestCase
 
         $data = $this->mapper->toArray($product);
 
-        $this->assertCount(2, $data);
+        $this->assertCount(5, $data);
         $this->assertSame(40, $data['id']);
         $this->assertSame('Only Required', $data['name']);
+        $this->assertNull($data['description']);
+        $this->assertNull($data['stock']);
+        $this->assertNull($data['featured']);
     }
 
     public function testFromJsonWithNullValuesStillWorks(): void
@@ -171,7 +177,8 @@ class NullablePropertiesTest extends TestCase
         $this->assertIsArray($data);
         $this->assertSame(60, $data['id']);
         $this->assertSame('JSON Output', $data['name']);
-        $this->assertArrayNotHasKey('description', $data);
+        $this->assertArrayHasKey('description', $data);
+        $this->assertNull($data['description']);
         $this->assertSame(100, $data['stock']);
         $this->assertTrue($data['featured']);
     }

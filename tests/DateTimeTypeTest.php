@@ -133,8 +133,8 @@ class DateTimeTypeTest extends TestCase
 
         $data = $this->mapper->toArray($object);
 
-        // Null values are not included in the normalized output
-        $this->assertArrayNotHasKey('updatedAt', $data);
+        $this->assertArrayHasKey('updatedAt', $data);
+        $this->assertNull($data['updatedAt']);
     }
 
     public function testRoundTripWithDateTime(): void

@@ -25,7 +25,8 @@ class Normalizer
     public function __construct(
         ?TypeResolver $typeResolver = null,
         /** @phpstan-ignore-next-line property.onlyWritten */
-        private ?\Pocta\DataMapper\Cache\ClassMetadataFactory $metadataFactory = null
+        private ?\Pocta\DataMapper\Cache\ClassMetadataFactory $metadataFactory = null,
+        private bool $skipNullValues = false
     ) {
         $this->typeResolver = $typeResolver ?? new TypeResolver();
     }
@@ -191,8 +192,7 @@ class Normalizer
      */
     private function shouldIncludeNull(ReflectionProperty $property): bool
     {
-        // For now, we skip null values. This can be configurable later
-        return false;
+        return !$this->skipNullValues;
     }
 
     /**
