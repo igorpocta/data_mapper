@@ -88,19 +88,19 @@ class ObjectType implements TypeInterface
         }
 
         // Denormalize the nested object with path prefix
+        $previousPrefix = $this->denormalizer->getPathPrefix();
         try {
             // Set path prefix for nested denormalization
             $this->denormalizer->setPathPrefix($fieldName);
             /** @var array<string, mixed> $value */
             $result = $this->denormalizer->denormalize($value, $this->className);
-            // Reset path prefix after denormalization
-            $this->denormalizer->setPathPrefix('');
             return $result;
         } catch (ValidationException $e) {
-            // Reset path prefix in case of error
-            $this->denormalizer->setPathPrefix('');
             // Errors already have full path from denormalizer, just re-throw
             throw $e;
+        } finally {
+            // Restore previous path prefix (not reset to '') to preserve parent context
+            $this->denormalizer->setPathPrefix($previousPrefix);
         }
     }
 

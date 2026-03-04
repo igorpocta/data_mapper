@@ -93,6 +93,9 @@ class ArrayType implements TypeInterface
         $collectedErrors = [];
 
         // Denormalize each element
+        $previousPrefix = $this->denormalizer !== null ? $this->denormalizer->getPathPrefix() : '';
+
+        // Denormalize each element
         foreach ($value as $key => $item) {
             if ($this->elementClassName !== null) {
                 // Object array
@@ -105,16 +108,15 @@ class ArrayType implements TypeInterface
                         $this->denormalizer->setPathPrefix("{$fieldName}[{$key}]");
                         /** @var array<string, mixed> $item */
                         $result[$key] = $this->denormalizer->denormalize($item, $this->elementClassName);
-                        // Reset path prefix after denormalization
-                        $this->denormalizer->setPathPrefix('');
                     } catch (ValidationException $e) {
                         // Errors already have full path from denormalizer
                         foreach ($e->getErrors() as $errorField => $errorMessage) {
                             $collectedErrors[$errorField] = $errorMessage;
                         }
                         $result[$key] = null;
-                        // Reset path prefix in case of error
-                        $this->denormalizer->setPathPrefix('');
+                    } finally {
+                        // Restore previous path prefix (not reset to '') to preserve parent context
+                        $this->denormalizer->setPathPrefix($previousPrefix);
                     }
                 } elseif ($item instanceof $this->elementClassName) {
                     $result[$key] = $item;
