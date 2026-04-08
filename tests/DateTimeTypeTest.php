@@ -169,6 +169,36 @@ class DateTimeTypeTest extends TestCase
         $this->mapper->fromArray($data, EventWithDateTime::class);
     }
 
+    /**
+     * @dataProvider invalidDateProvider
+     */
+    public function testFromArrayRejectsInvalidDates(string $invalidDate): void
+    {
+        $data = [
+            'id' => 1,
+            'name' => 'Test Event',
+            'createdAt' => $invalidDate,
+        ];
+
+        $this->expectException(ValidationException::class);
+
+        $this->mapper->fromArray($data, EventWithDateTime::class);
+    }
+
+    /**
+     * @return array<string, array{string}>
+     */
+    public static function invalidDateProvider(): array
+    {
+        return [
+            'zeros' => ['0000-00-00'],
+            'invalid day' => ['2025-02-30'],
+            'invalid month' => ['2025-13-01'],
+            'invalid day 31 in april' => ['2025-04-31'],
+            'zeros with time' => ['0000-00-00 00:00:00'],
+        ];
+    }
+
     public function testFromJsonWithDateTime(): void
     {
         $data = [

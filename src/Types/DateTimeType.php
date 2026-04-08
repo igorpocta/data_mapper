@@ -158,6 +158,17 @@ class DateTimeType implements TypeInterface
             return null;
         }
 
+        // Round-trip check: reject dates that PHP silently "corrected"
+        // e.g. 2025-02-30 → 2025-03-02, 0000-00-00 → -0001-11-30
+        if ($dateTime->format($format) !== $value) {
+            if ($throwOnError) {
+                throw new InvalidArgumentException(
+                    "Field '{$fieldName}' contains an invalid date. Value: '{$value}'"
+                );
+            }
+            return null;
+        }
+
         return $dateTime;
     }
 
