@@ -5,3 +5,20 @@ parameters:
         - tests
     excludePaths:
         - tests/Fixtures
+    ignoreErrors:
+        -
+            identifier: argument.type
+            path: src/Attributes/Filters/SortArrayFilter.php
+            reportUnmatched: false
+        -
+            identifier: argument.type
+            path: src/Attributes/Filters/UniqueArrayFilter.php
+            reportUnmatched: false
+        -
+            identifier: argument.type
+            path: tests/NewFilters2Test.php
+            reportUnmatched: false
+        -
+            identifier: function.alreadyNarrowedType
+            path: src/Attributes/Filters/EachFilter.php
+            reportUnmatched: false

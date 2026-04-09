@@ -19,7 +19,6 @@ class EachFilter implements FilterInterface
         public readonly string $filterClass,
         public readonly array $args = []
     ) {
-        // @phpstan-ignore-next-line - Type is guaranteed by class-string<FilterInterface>
         if (!is_subclass_of($this->filterClass, FilterInterface::class, true)) {
             throw new InvalidArgumentException("Filter class '{$this->filterClass}' must implement FilterInterface");
         }
