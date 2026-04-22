@@ -147,6 +147,14 @@ class Denormalizer
             $this->errors = [];
         }
 
+        // Snapshot errors BEFORE this call. The shared denormalizer instance is
+        // reused for nested ObjectType / ArrayType denormalizations, so $this->errors
+        // may carry keys produced by a parent invocation. Without this snapshot we
+        // would re-throw parent errors as if they happened inside this call, which
+        // then get caught in setPropertyValue() / denormalizeValue() and turn into
+        // null being assigned to a non-nullable property (PHP TypeError).
+        $errorsBeforeCall = $this->errors;
+
         // Initialize root payload in TypeResolver if not set
         if ($this->typeResolver->getRootPayload() === null) {
             $this->typeResolver->setRootPayload($data);
@@ -193,9 +201,13 @@ class Denormalizer
                 $result = $this->createWithoutConstructor($reflection, $data);
             }
 
-            // Check if any errors were collected
-            if (!empty($this->errors)) {
-                throw new ValidationException($this->errors);
+            // Only throw for errors produced inside this invocation (including
+            // its descendants). Errors present in $errorsBeforeCall belong to a
+            // parent invocation on the same shared denormalizer and must not be
+            // re-raised here — the parent will throw them itself.
+            $newErrors = array_diff_key($this->errors, $errorsBeforeCall);
+            if (!empty($newErrors)) {
+                throw new ValidationException($newErrors);
             }
 
             if (empty($this->contextStack) && $this->ownsRootPayload) {
@@ -228,6 +240,10 @@ class Denormalizer
         \ReflectionMethod $constructor,
         array $data
     ): object {
+        // Snapshot errors for the same reason as in denormalize(): on a shared
+        // denormalizer instance, $this->errors may already contain keys from a
+        // parent invocation — we must only react to NEW errors produced here.
+        $errorsBeforeCall = $this->errors;
         $constructorArgs = [];
 
         foreach ($constructor->getParameters() as $parameter) {
@@ -235,10 +251,11 @@ class Denormalizer
             $constructorArgs[] = $value;
         }
 
-        // If there were errors with constructor parameters, throw immediately
-        // because we can't create the instance
-        if (!empty($this->errors)) {
-            throw new ValidationException($this->errors);
+        // If there were NEW errors produced while resolving constructor arguments,
+        // throw immediately because we cannot create the instance.
+        $newErrors = array_diff_key($this->errors, $errorsBeforeCall);
+        if (!empty($newErrors)) {
+            throw new ValidationException($newErrors);
         }
 
         $instance = $reflection->newInstanceArgs($constructorArgs);
@@ -402,14 +419,26 @@ class Denormalizer
         $classType = $this->getClassTypeFromProperty($propertyAttributes);
 
         $fullPath = $this->buildFullFieldPath($path ?? $jsonKey);
-        $errorCountBefore = count($this->errors);
+        $errorsBefore = $this->errors;
         $typedValue = $this->denormalizeValue($value, $typeName, $fullPath, $isNullable, $format, $timezone, $arrayOf, $classType);
         // Apply filters AFTER type denormalization
         $typedValue = $this->applyFiltersToProperty($property, $typedValue);
 
-        // Don't set the value if there were any errors during denormalization
-        // (including nested errors stored under deeper paths like "child.status")
-        if (count($this->errors) > $errorCountBefore) {
+        // Don't set the value if any error was added or changed during denormalization.
+        // Value comparison (not just count) is required because the nested denormalize/
+        // denormalizeValue catch blocks can overwrite an existing key with the same key
+        // but a different message, which would leave count unchanged and then fall
+        // through to setValue(null) on a non-nullable property (PHP TypeError).
+        if ($this->errors !== $errorsBefore) {
+            return;
+        }
+
+        // Defence in depth: never attempt to assign null to a non-nullable property.
+        // If we reach this point with $typedValue === null and the property does not
+        // allow null, an upstream path failed to record an error — skip assignment
+        // instead of triggering a TypeError. The parent denormalize() will still
+        // surface any new errors gathered so far.
+        if ($typedValue === null && !$isNullable) {
             return;
         }
 
